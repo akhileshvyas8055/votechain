@@ -198,8 +198,11 @@ export function updateElectionStatus(id: string, status: Election['status']): El
   const idx = elections.findIndex((e) => e.id === id);
   if (idx === -1) return null;
 
-  elections[idx].status = status;
-  elections[idx].updatedAt = new Date().toISOString();
+  const election = elections[idx];
+  if (!election) return null;
+
+  election.status = status;
+  election.updatedAt = new Date().toISOString();
   write(KEYS.ELECTIONS, elections);
 
   addAuditEntry({
@@ -209,7 +212,7 @@ export function updateElectionStatus(id: string, status: Election['status']): El
     performedBy: 'Election Commissioner',
   });
 
-  return elections[idx];
+  return election;
 }
 
 export function addCandidateToElection(electionId: string, candidate: { name: string; party: string; symbol: string }): Candidate | null {
@@ -225,8 +228,11 @@ export function addCandidateToElection(electionId: string, candidate: { name: st
     votes: 0,
   };
 
-  elections[idx].candidates.push(newCand);
-  elections[idx].updatedAt = new Date().toISOString();
+  const election = elections[idx];
+  if (!election) return null;
+
+  election.candidates.push(newCand);
+  election.updatedAt = new Date().toISOString();
   write(KEYS.ELECTIONS, elections);
 
   addAuditEntry({
@@ -245,7 +251,7 @@ export function castVote(electionId: string, candidateId: string, voterId: strin
   if (idx === -1) return false;
 
   const election = elections[idx];
-  if (election.status !== 'ACTIVE') return false;
+  if (!election || election.status !== 'ACTIVE') return false;
 
   const candIdx = election.candidates.findIndex((c) => c.id === candidateId);
   if (candIdx === -1) return false;
@@ -256,7 +262,10 @@ export function castVote(electionId: string, candidateId: string, voterId: strin
   if (voter?.hasVoted) return false;
 
   // Record vote
-  election.candidates[candIdx].votes += 1;
+  const cand = election.candidates[candIdx];
+  if (!cand) return false;
+  
+  cand.votes += 1;
   election.totalVotes += 1;
   elections[idx] = election;
   write(KEYS.ELECTIONS, elections);

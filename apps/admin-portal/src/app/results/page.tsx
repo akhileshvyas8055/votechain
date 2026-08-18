@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import * as store from '@/lib/electionStore';
 import { BackButton } from '@/components/layout/BackButton';
 import Link from 'next/link';
 
-export default function LiveResultsPage() {
+function ResultsContent() {
   const searchParams = useSearchParams();
   const electionIdFromQuery = searchParams.get('electionId');
 
@@ -193,5 +193,13 @@ export default function LiveResultsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function LiveResultsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#0B101D] text-white">Loading results...</div>}>
+      <ResultsContent />
+    </Suspense>
   );
 }
