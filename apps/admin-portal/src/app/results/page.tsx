@@ -32,7 +32,7 @@ export default function LiveResultsPage() {
         selected = elections.find((e) => e.id === electionIdFromQuery) || null;
       }
       if (!selected && elections.length > 0) {
-        selected = elections[0];
+        selected = elections[0] || null;
       }
 
       setElection(selected);
@@ -41,7 +41,7 @@ export default function LiveResultsPage() {
       console.error(err);
       // Fallback to local
       const localElections = store.getAllElections();
-      setElection(localElections.length > 0 ? localElections[0] : null);
+      setElection(localElections.length > 0 ? (localElections[0] || null) : null);
     } finally {
       setLoading(false);
     }

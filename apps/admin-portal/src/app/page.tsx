@@ -77,7 +77,7 @@ function DashboardElectionCard({ election }: { election: store.Election }) {
 export default function DashboardPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [time, setTime] = useState('');
-  const { elections, loading, refresh } = useElections();
+  const { elections, loading } = useElections();
   const [stats, setStats] = useState({
     totalElections: 0,
     activePolls: 0,
