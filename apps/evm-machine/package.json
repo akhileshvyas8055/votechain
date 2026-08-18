@@ -2,6 +2,9 @@
   "name": "@votechain/evm-machine",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "main": "dist/electron/main.js",
   "scripts": {
     "dev": "vite",

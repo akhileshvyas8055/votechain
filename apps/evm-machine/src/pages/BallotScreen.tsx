@@ -1,4 +1,3 @@
-import React from 'react';
 import { Sun, Trees, Flag, Vote } from 'lucide-react';
 
 const CANDIDATES = [
@@ -8,10 +7,9 @@ const CANDIDATES = [
 ];
 
 export function BallotScreen({
-  fingerprint,
   onVoteCast,
 }: {
-  fingerprint: string;
+  fingerprint?: string;
   onVoteCast: (candidate: any) => void;
 }) {
   return (

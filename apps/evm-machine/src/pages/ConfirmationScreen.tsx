@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { CheckCircle2, Printer } from 'lucide-react';
 
 export function ConfirmationScreen({

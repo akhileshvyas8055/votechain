@@ -1,0 +1,9 @@
+[build]
+  command = "npx turbo run build --filter=@votechain/admin-portal"
+  publish = "apps/admin-portal/.next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

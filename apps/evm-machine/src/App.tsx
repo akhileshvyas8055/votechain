@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 export function App() {
   const [screen, setScreen] = useState<'CANDIDATES' | 'FINGERPRINT' | 'CONFIRM' | 'SUCCESS' | 'ERROR'>('CANDIDATES');

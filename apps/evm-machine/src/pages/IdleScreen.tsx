@@ -1,4 +1,3 @@
-import React from 'react';
 import { ShieldCheck, Touchpad } from 'lucide-react';
 
 export function IdleScreen({ onStart }: { onStart: () => void }) {

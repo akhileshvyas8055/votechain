@@ -2,8 +2,12 @@
   "name": "@votechain/contracts",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "description": "VoteChain EVM Smart Contracts - Solidity contracts for blockchain voting",
   "scripts": {
+    "build": "hardhat compile",
     "compile": "hardhat compile",
     "test": "hardhat test",
     "test:coverage": "hardhat coverage",

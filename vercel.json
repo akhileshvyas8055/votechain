@@ -1,0 +1,5 @@
+{
+  "buildCommand": "npx turbo run build --filter=@votechain/admin-portal",
+  "outputDirectory": "apps/admin-portal/.next",
+  "framework": "nextjs"
+}
