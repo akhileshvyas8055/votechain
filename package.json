@@ -6,8 +6,12 @@
   "author": "VoteChain Team",
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "start": "turbo run dev",
     "build": "npx turbo run build --filter=\"./apps/*\"",
@@ -26,9 +30,9 @@
     "admin:dev": "turbo run dev --filter=@votechain/admin-portal",
     "results:dev": "turbo run dev --filter=@votechain/results-portal",
     "evm:dev": "turbo run dev --filter=@votechain/evm-software",
-    "db:migrate": "pnpm --filter @votechain/backend prisma migrate dev",
-    "db:seed": "pnpm --filter @votechain/backend prisma db seed",
-    "db:studio": "pnpm --filter @votechain/backend prisma studio"
+    "db:migrate": "npm run db:migrate --workspace=@votechain/backend",
+    "db:seed": "npm run db:seed --workspace=@votechain/backend",
+    "db:studio": "npm run db:studio --workspace=@votechain/backend"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
