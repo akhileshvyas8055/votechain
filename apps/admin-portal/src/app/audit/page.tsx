@@ -7,8 +7,24 @@ import { BackButton } from '@/components/layout/BackButton';
 export default function AuditPage() {
   const [entries, setEntries] = useState<store.AuditEntry[]>([]);
 
+  const fetchAudit = async () => {
+    try {
+      const res = await fetch('http://localhost:4000/api/mock/data');
+      const data = await res.json();
+      if (data.success !== false && data.audit) {
+        setEntries(data.audit);
+      } else {
+        setEntries(store.getAllAuditEntries());
+      }
+    } catch {
+      setEntries(store.getAllAuditEntries());
+    }
+  };
+
   useEffect(() => {
-    setEntries(store.getAllAuditEntries());
+    fetchAudit();
+    const interval = setInterval(fetchAudit, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   return (

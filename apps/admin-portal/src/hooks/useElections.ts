@@ -25,6 +25,8 @@ export function useElections() {
 
   useEffect(() => {
     fetchElections();
+    window.addEventListener('storage', fetchElections);
+    return () => window.removeEventListener('storage', fetchElections);
   }, [fetchElections]);
 
   return { elections, loading, error, refresh: fetchElections };

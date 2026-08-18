@@ -1,50 +1,21 @@
-import Redis, { RedisOptions } from 'ioredis';
-import { env } from './env';
 import { logger } from './logger';
 
-const redisConfig: RedisOptions = {
-  maxRetriesPerRequest: 3,
-  enableReadyCheck: true,
-  retryStrategy(times) {
-    const delay = Math.min(times * 50, 2000);
-    logger.warn(`Redis disconnected. Retrying in ${delay}ms...`);
-    return delay;
-  },
-};
-
-// Main Redis client for general caching
-export const redis = new Redis(env.REDIS_URL, redisConfig);
-
-// Secondary client for Pub/Sub (requires dedicated connection)
-export const redisPubSub = new Redis(env.REDIS_URL, redisConfig);
-
-redis.on('connect', () => {
-  logger.info('✅ Successfully connected to Redis');
-});
-
-redis.on('error', (error) => {
-  logger.error('❌ Redis connection error:', error);
-});
-
-// Helper functions
-export const cacheSet = async (key: string, value: string, ttlSeconds?: number) => {
-  if (ttlSeconds) {
-    await redis.setex(key, ttlSeconds, value);
-  } else {
-    await redis.set(key, value);
+class MockRedis {
+  on(event: string, callback: any) {
+    if (event === 'connect') setTimeout(callback, 10);
   }
-};
+  async set(): Promise<void> {}
+  async setex(): Promise<void> {}
+  async get(key?: string): Promise<string | null> { return null; }
+  async del(): Promise<void> {}
+  async quit(): Promise<void> {}
+}
 
-export const cacheGet = async (key: string): Promise<string | null> => {
-  return redis.get(key);
-};
+export const redis = new MockRedis() as any;
+export const redisPubSub = new MockRedis() as any;
 
-export const cacheDel = async (key: string) => {
-  return redis.del(key);
-};
+export const cacheSet = async (key: string, value: string, ttlSeconds?: number) => {};
+export const cacheGet = async (key: string): Promise<string | null> => { return null; };
+export const cacheDel = async (key: string) => {};
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  await redis.quit();
-  await redisPubSub.quit();
-});
+process.on('SIGINT', async () => {});

@@ -14,21 +14,37 @@ export default function LiveResultsPage() {
   const [loading, setLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState('');
 
-  const fetchResults = () => {
+  const fetchResults = async () => {
     setLoading(true);
-    const elections = store.getAllElections();
-    let selected: store.Election | null = null;
+    try {
+      const res = await fetch('http://localhost:4000/api/mock/data');
+      const data = await res.json();
+      
+      let elections: store.Election[] = [];
+      if (data.success !== false && data.elections) {
+        elections = data.elections;
+      } else {
+        elections = store.getAllElections(); // fallback
+      }
+      
+      let selected: store.Election | null = null;
+      if (electionIdFromQuery) {
+        selected = elections.find((e) => e.id === electionIdFromQuery) || null;
+      }
+      if (!selected && elections.length > 0) {
+        selected = elections[0];
+      }
 
-    if (electionIdFromQuery) {
-      selected = elections.find((e) => e.id === electionIdFromQuery) || null;
+      setElection(selected);
+      setLastRefreshed(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error(err);
+      // Fallback to local
+      const localElections = store.getAllElections();
+      setElection(localElections.length > 0 ? localElections[0] : null);
+    } finally {
+      setLoading(false);
     }
-    if (!selected && elections.length > 0) {
-      selected = elections[0];
-    }
-
-    setElection(selected);
-    setLastRefreshed(new Date().toLocaleTimeString());
-    setLoading(false);
   };
 
   useEffect(() => {

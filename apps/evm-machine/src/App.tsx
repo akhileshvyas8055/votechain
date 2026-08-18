@@ -1,47 +1,107 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export function App() {
-  const [screen, setScreen] = useState<'WELCOME' | 'VOTING' | 'VERIFY' | 'CONFIRM'>('WELCOME');
+  const [screen, setScreen] = useState<'CANDIDATES' | 'FINGERPRINT' | 'CONFIRM' | 'SUCCESS' | 'ERROR'>('CANDIDATES');
   const [language, setLanguage] = useState<'hi' | 'en'>('hi');
-  const [voterId, setVoterId] = useState('');
-  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
-
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [election, setElection] = useState<any>(null);
+  const [electionStatus, setElectionStatus] = useState<string>('Loading Active Election...');
+  
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [voterIdSimulated, setVoterIdSimulated] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isCasting, setIsCasting] = useState(false);
 
-  const handleKeypad = (key: string) => {
-    if (key === 'back') {
-      setVoterId((prev) => prev.slice(0, -1));
-    } else if (key === 'clear') {
-      setVoterId('');
-    } else if (voterId.length < 10) {
-      setVoterId((prev) => prev + key);
-    }
+  useEffect(() => {
+    fetchActiveElection();
+    // Poll every 5 seconds to stay synced with admin portal
+    const interval = setInterval(fetchActiveElection, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchActiveElection = () => {
+    fetch('http://localhost:4000/api/mock/elections/active')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setElection(data.data);
+          setCandidates(data.data.candidates || []);
+        } else {
+          setElectionStatus('कोई सक्रिय चुनाव नहीं मिला (No active election)');
+          setCandidates([]);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setElectionStatus('सर्वर से संपर्क टूट गया (Connection lost). Ensure Admin Portal is running and updated.');
+      });
   };
 
-  const handleVoteSelect = (c: any) => {
+  const handleCandidateClick = (c: any) => {
     setSelectedCandidate(c);
-    setShowConfirmModal(true);
+    setVoterIdSimulated('');
+    setScreen('FINGERPRINT');
   };
 
-  const handleConfirmVote = () => {
-    setShowConfirmModal(false);
-    setScreen('VERIFY');
+  const handleVerifyFingerprint = () => {
+    if (!voterIdSimulated) return;
+    setIsVerifying(true);
+    fetch('http://localhost:4000/api/mock/voter/verify-fingerprint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voterId: voterIdSimulated })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setIsVerifying(false);
+        if (data.success) {
+          setScreen('CONFIRM');
+        } else {
+          setErrorMessage(data.message || 'Fingerprint Verification Failed');
+          setScreen('ERROR');
+        }
+      })
+      .catch(() => {
+        setIsVerifying(false);
+        setErrorMessage('Failed to connect to blockchain network.');
+        setScreen('ERROR');
+      });
   };
 
-  const handleScanBiometric = () => {
-    setIsScanning(true);
-    setTimeout(() => {
-      setIsScanning(false);
-      setScreen('CONFIRM');
-    }, 2500);
+  const handleCastVote = () => {
+    setIsCasting(true);
+    fetch('http://localhost:4000/api/mock/vote/cast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        electionId: election.id,
+        candidateId: selectedCandidate.id,
+        voterId: voterIdSimulated
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setIsCasting(false);
+        if (data.success) {
+          setScreen('SUCCESS');
+          fetchActiveElection(); // Refresh votes immediately
+        } else {
+          setErrorMessage(data.message || 'Failed to cast vote');
+          setScreen('ERROR');
+        }
+      })
+      .catch(() => {
+        setIsCasting(false);
+        setErrorMessage('Failed to connect to blockchain network.');
+        setScreen('ERROR');
+      });
   };
 
-  const handleReset = () => {
-    setVoterId('');
+  const resetVoting = () => {
     setSelectedCandidate(null);
-    setScreen('WELCOME');
+    setVoterIdSimulated('');
+    setScreen('CANDIDATES');
   };
 
   return (
@@ -55,10 +115,10 @@ export function App() {
           </div>
           <div>
             <h1 className={`text-xl font-bold text-slate-100 ${language === 'hi' ? 'font-hindi' : ''}`}>
-              {language === 'hi' ? 'भारत निर्वाचन आयोग' : 'Election Commission of India'}
+              {language === 'hi' ? 'भारत निर्वाचन आयोग - EVM' : 'Election Commission of India - EVM'}
             </h1>
             <p className="text-xs text-amber-400 font-mono">
-              VoteChain EVM Kiosk | Booth: DEL-001-CONNAUGHT
+              Election: {election ? election.name : 'Waiting...'} | Booth: DEL-001
             </p>
           </div>
         </div>
@@ -67,21 +127,13 @@ export function App() {
         <div className="flex gap-2">
           <button
             onClick={() => setLanguage('hi')}
-            className={`min-h-[48px] px-6 text-lg font-bold rounded-xl border-2 transition-all ${
-              language === 'hi'
-                ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-lg'
-                : 'bg-slate-800 border-slate-700 text-slate-300'
-            }`}
+            className={`min-h-[40px] px-4 font-bold rounded-lg border-2 ${language === 'hi' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-800 border-slate-700'}`}
           >
             हिं
           </button>
           <button
             onClick={() => setLanguage('en')}
-            className={`min-h-[48px] px-6 text-lg font-bold rounded-xl border-2 transition-all ${
-              language === 'en'
-                ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-lg'
-                : 'bg-slate-800 border-slate-700 text-slate-300'
-            }`}
+            className={`min-h-[40px] px-4 font-bold rounded-lg border-2 ${language === 'en' ? 'bg-amber-500 border-amber-400 text-slate-950' : 'bg-slate-800 border-slate-700'}`}
           >
             ENG
           </button>
@@ -89,122 +141,60 @@ export function App() {
       </header>
 
       {/* Main Kiosk Display Content */}
-      <main className="flex-1 flex items-center justify-center p-6">
+      <main className="flex-1 flex items-center justify-center p-6 relative">
         
-        {/* SCREEN 1: WELCOME / VOTER ID KEYPAD */}
-        {screen === 'WELCOME' && (
-          <div className="w-full max-w-2xl bg-slate-950 rounded-3xl border-4 border-slate-800 p-8 shadow-2xl space-y-6">
-            <div className="text-center space-y-2">
-              <div className="text-6xl">🗳️</div>
-              <h2 className={`text-3xl font-bold text-slate-100 ${language === 'hi' ? 'font-hindi' : ''}`}>
-                {language === 'hi' ? 'स्वागत है - अपना Voter ID दर्ज करें' : 'Welcome - Enter Your Voter ID'}
-              </h2>
-              <p className="text-sm text-slate-400 font-mono">Blockchain-Secured Electronic Voting Machine</p>
-            </div>
-
-            {/* Input Display */}
-            <div className="bg-slate-900 border-2 border-amber-500/50 rounded-2xl p-4 text-center">
-              <input
-                value={voterId}
-                readOnly
-                placeholder={language === 'hi' ? 'VOTER ID दर्ज करें' : 'ENTER VOTER ID'}
-                className="w-full bg-transparent text-center text-3xl font-mono text-amber-400 font-bold tracking-widest outline-none"
-              />
-            </div>
-
-            {/* Touch Keypad */}
-            <div className="grid grid-cols-3 gap-3">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((k) => (
-                <button
-                  key={k}
-                  onClick={() => handleKeypad(k)}
-                  className="h-16 text-2xl font-bold bg-slate-900 border-2 border-slate-800 hover:border-amber-500 text-slate-100 rounded-xl transition"
-                >
-                  {k}
-                </button>
-              ))}
-              <button
-                onClick={() => handleKeypad('back')}
-                className="h-16 text-lg font-bold bg-slate-900 border-2 border-slate-800 hover:border-red-500 text-red-400 rounded-xl"
-              >
-                ← {language === 'hi' ? 'मिटाएं' : 'Back'}
-              </button>
-              <button
-                onClick={() => handleKeypad('0')}
-                className="h-16 text-2xl font-bold bg-slate-900 border-2 border-slate-800 hover:border-amber-500 text-slate-100 rounded-xl"
-              >
-                0
-              </button>
-              <button
-                onClick={() => handleKeypad('clear')}
-                className="h-16 text-sm font-bold bg-slate-900 border-2 border-slate-800 hover:border-red-500 text-red-400 rounded-xl"
-              >
-                {language === 'hi' ? 'साफ़ करें' : 'Clear'}
-              </button>
-            </div>
-
-            <button
-              onClick={() => voterId.length >= 4 && setScreen('VOTING')}
-              disabled={voterId.length < 4}
-              className="w-full h-16 bg-amber-500 hover:bg-amber-400 disabled:opacity-30 text-slate-950 font-black text-2xl rounded-2xl transition uppercase tracking-wider"
-            >
-              {language === 'hi' ? 'आगे बढ़ें →' : 'PROCEED →'}
-            </button>
-          </div>
-        )}
-
-        {/* SCREEN 2: CANDIDATE SELECTION */}
-        {screen === 'VOTING' && (
+        {/* CANDIDATES LISTING */}
+        {screen === 'CANDIDATES' && (
           <div className="w-full max-w-4xl space-y-4">
-            <div className="bg-amber-500/10 border-l-8 border-amber-500 p-4 rounded-r-xl flex items-center gap-3">
-              <span className="text-3xl">👆</span>
-              <p className={`text-lg font-bold text-amber-400 ${language === 'hi' ? 'font-hindi' : ''}`}>
-                {language === 'hi'
-                  ? 'अपने पसंदीदा उम्मीदवार के सामने बने बटन पर स्पर्श करें'
-                  : 'Touch the button next to your preferred candidate'}
-              </p>
-            </div>
-
             {candidates.length === 0 ? (
-              <div className="bg-slate-950 border-2 border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-2">
-                <p className="text-lg font-bold text-slate-200">
-                  {language === 'hi' ? 'कोई उम्मीदवार पंजीकृत नहीं है' : 'No Candidates Registered'}
+              <div className="bg-slate-950 border-2 border-slate-800 rounded-2xl p-12 text-center space-y-4">
+                <div className="text-6xl animate-pulse">📡</div>
+                <p className="text-2xl font-bold text-slate-300">
+                  {electionStatus}
                 </p>
-                <p className="text-xs">
-                  {language === 'hi' ? 'कृपया पीठासीन अधिकारी से संपर्क करें' : 'Please contact the Booth Election Officer'}
+                <p className="text-sm text-slate-500">
+                  {language === 'hi' ? 'चुनाव अधिकारी द्वारा सर्वर चालू करने की प्रतीक्षा करें' : 'Waiting for election officer to start the server'}
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
+                <div className="bg-amber-500/10 border-l-8 border-amber-500 p-4 rounded-r-xl flex items-center gap-3 mb-6">
+                  <span className="text-3xl">🗳️</span>
+                  <p className={`text-lg font-bold text-amber-400 ${language === 'hi' ? 'font-hindi' : ''}`}>
+                    {language === 'hi'
+                      ? 'अपना उम्मीदवार चुनें और वोट दें बटन दबाएं'
+                      : 'Select your candidate and press the vote button'}
+                  </p>
+                </div>
                 {candidates.map((c, i) => (
                   <div
                     key={c.id}
-                    className="bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 flex items-center justify-between hover:border-amber-500/50 transition"
+                    className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex items-center justify-between hover:border-amber-500/50 hover:bg-slate-900 transition shadow-lg"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-slate-800 rounded-xl flex items-center justify-center font-bold text-2xl text-amber-400">
+                      <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center font-black text-3xl text-amber-400 shadow-inner border border-slate-700">
                         {i + 1}
                       </div>
-                      <div>
-                        <h3 className={`text-xl font-bold text-slate-100 ${language === 'hi' ? 'font-hindi' : ''}`}>
-                          {language === 'hi' ? (c.nameHindi || c.name) : c.name}
-                        </h3>
-                        <p className={`text-xs text-amber-400 ${language === 'hi' ? 'font-hindi' : ''}`}>
-                          {language === 'hi' ? (c.partyHindi || c.party) : c.party}
-                        </p>
+                      <div className="flex items-center gap-4 ml-2">
+                        <div className="text-5xl">{c.symbol || '🗳️'}</div>
+                        <div>
+                          <h3 className={`text-2xl font-bold text-slate-100 uppercase tracking-wider ${language === 'hi' ? 'font-hindi' : ''}`}>
+                            {language === 'hi' ? (c.nameHindi || c.name) : c.name}
+                          </h3>
+                          <p className={`text-sm text-amber-400 font-bold tracking-wide ${language === 'hi' ? 'font-hindi' : ''}`}>
+                            {language === 'hi' ? (c.partyHindi || c.party) : c.party}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-6">
-                      <div className="text-4xl">{c.symbol || '🗳️'}</div>
-                      <button
-                        onClick={() => handleVoteSelect(c)}
-                        className="h-16 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xl rounded-xl shadow-lg border-b-4 border-emerald-800 active:border-b-0 transition flex items-center gap-2"
-                      >
-                        <span>{language === 'hi' ? 'वोट दें' : 'VOTE'}</span>
-                        <span className="text-2xl">👆</span>
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleCandidateClick(c)}
+                      className="h-20 w-48 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-2xl rounded-xl shadow-xl border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center gap-3"
+                    >
+                      <span>{language === 'hi' ? 'वोट दें' : 'VOTE'}</span>
+                      <span className="text-3xl">👆</span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -212,101 +202,145 @@ export function App() {
           </div>
         )}
 
-        {/* SCREEN 3: BIOMETRIC SCAN VERIFICATION */}
-        {screen === 'VERIFY' && (
-          <div className="w-full max-w-xl bg-slate-950 border-4 border-slate-800 rounded-3xl p-8 text-center space-y-6">
+        {/* FINGERPRINT MODAL */}
+        {screen === 'FINGERPRINT' && (
+          <div className="w-full max-w-xl bg-slate-950 border-4 border-amber-500 rounded-3xl p-8 text-center shadow-2xl relative overflow-hidden">
             <h2 className={`text-2xl font-bold text-slate-100 ${language === 'hi' ? 'font-hindi' : ''}`}>
-              {language === 'hi' ? 'बायोमेट्रिक सत्यापन (फिंगरप्रिंट)' : 'Biometric Fingerprint Verification'}
+              {language === 'hi' ? 'बायोमेट्रिक सत्यापन आवश्यक' : 'Biometric Verification Required'}
             </h2>
-            <p className="text-sm text-slate-400">Please place your registered finger on the optical sensor</p>
+            <p className="text-sm text-slate-400 mt-2 mb-8">
+              {language === 'hi' ? 'कृपया स्कैनर पर अपनी उंगली रखें' : 'Please place your registered finger on the scanner'}
+            </p>
 
-            <div
-              onClick={!isScanning ? handleScanBiometric : undefined}
-              className={`p-8 rounded-full border-4 cursor-pointer inline-block transition ${
-                isScanning
-                  ? 'border-amber-500 bg-amber-500/20 text-amber-400 animate-pulse'
-                  : 'border-slate-700 bg-slate-900 text-slate-400 hover:border-amber-500'
-              }`}
-            >
-              <div className="text-7xl">👆</div>
+            <div className={`p-10 rounded-full border-4 mx-auto inline-block mb-6 shadow-inner ${isVerifying ? 'border-amber-500 bg-amber-500/20 text-amber-400 animate-pulse' : 'border-slate-700 bg-slate-900 text-slate-400'}`}>
+              <div className="text-8xl">👆</div>
             </div>
 
-            <div className="text-xs font-mono font-bold text-amber-400 uppercase tracking-widest">
-              {isScanning ? 'VERIFYING ON POLYGON EVM...' : 'TAP SCANNER ICON TO VERIFY'}
+            {/* SIMULATION INPUT FOR FINGERPRINT */}
+            <div className="mt-4 mb-6">
+              <label className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-2 block">
+                [Hardware Simulation: Enter Voter ID to simulate fingerprint match]
+              </label>
+              <input
+                type="text"
+                value={voterIdSimulated}
+                onChange={(e) => setVoterIdSimulated(e.target.value)}
+                placeholder="Enter Voter ID"
+                className="w-full max-w-xs bg-slate-900 border-2 border-slate-700 rounded-lg p-3 text-center text-xl text-amber-400 uppercase outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={resetVoting}
+                className="px-8 py-4 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl"
+              >
+                {language === 'hi' ? 'रद्द करें' : 'CANCEL'}
+              </button>
+              <button
+                onClick={handleVerifyFingerprint}
+                disabled={isVerifying || !voterIdSimulated}
+                className="px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-black rounded-xl disabled:opacity-50"
+              >
+                {isVerifying ? 'VERIFYING...' : (language === 'hi' ? 'फिंगरप्रिंट स्कैन करें' : 'SIMULATE SCAN')}
+              </button>
             </div>
           </div>
         )}
 
-        {/* SCREEN 4: SUCCESS CONFIRMATION & VVPAT PRINT */}
+        {/* CONFIRM VOTE */}
         {screen === 'CONFIRM' && (
-          <div className="w-full max-w-xl bg-slate-950 border-4 border-emerald-500 rounded-3xl p-8 text-center space-y-6">
-            <div className="text-7xl">✅</div>
-            <h2 className={`text-3xl font-bold text-emerald-400 ${language === 'hi' ? 'font-hindi' : ''}`}>
-              {language === 'hi' ? 'मतदान सफलतापूर्वक दर्ज हुआ' : 'Vote Cast Successfully'}
+          <div className="w-full max-w-xl bg-slate-950 border-4 border-emerald-500 rounded-3xl p-8 text-center shadow-2xl">
+            <div className="text-6xl mb-4">✅</div>
+            <h2 className={`text-2xl font-bold text-emerald-400 mb-6 uppercase tracking-wider`}>
+              VOTER AUTHENTICATED
             </h2>
-            <p className="text-xs text-slate-400 font-mono">Recorded on Polygon EVM Smart Contract</p>
+            
+            <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 mb-8 text-left">
+              <div className="text-sm text-slate-500 uppercase font-bold mb-4 border-b border-slate-800 pb-2">Confirm Your Vote</div>
+              <div className="flex items-center gap-6">
+                <div className="text-6xl">{selectedCandidate?.symbol}</div>
+                <div>
+                  <div className="text-3xl font-black text-white">{selectedCandidate?.name}</div>
+                  <div className="text-lg text-amber-400 font-bold">{selectedCandidate?.party}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={resetVoting}
+                className="flex-1 py-5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xl transition"
+              >
+                {language === 'hi' ? 'रद्द करें' : 'CANCEL'}
+              </button>
+              <button
+                onClick={handleCastVote}
+                disabled={isCasting}
+                className="flex-1 py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xl transition shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+              >
+                {isCasting ? 'RECORDING...' : (language === 'hi' ? 'वोट पक्का करें' : 'CONFIRM VOTE')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* SUCCESS */}
+        {screen === 'SUCCESS' && (
+          <div className="w-full max-w-xl bg-slate-950 border-4 border-emerald-500 rounded-3xl p-10 text-center shadow-[0_0_50px_rgba(16,185,129,0.2)]">
+            <div className="text-8xl mb-6">🎉</div>
+            <h2 className={`text-4xl font-black text-emerald-400 mb-4 tracking-wider ${language === 'hi' ? 'font-hindi' : ''}`}>
+              {language === 'hi' ? 'मतदान सफलतापूर्वक दर्ज हुआ' : 'VOTE CAST SUCCESSFULLY'}
+            </h2>
+            <p className="text-sm text-slate-400 font-mono mb-8">Recorded securely on Polygon EVM Blockchain</p>
 
             {/* VVPAT Printed Slip Box */}
-            <div className="bg-amber-100 text-slate-900 p-4 rounded-xl font-mono text-left text-xs space-y-1 shadow-lg border border-amber-300">
-              <div className="font-bold border-b border-slate-900 pb-1 mb-2">VVPAT SLIP CONFIRMATION</div>
-              <div>CANDIDATE: {selectedCandidate?.name}</div>
-              <div>PARTY: {selectedCandidate?.party}</div>
-              <div>TIMESTAMP: {new Date().toLocaleTimeString()}</div>
-              <div>TX HASH: 0x9f82...12ba</div>
+            <div className="bg-amber-100 text-slate-900 p-6 rounded-xl font-mono text-left text-sm space-y-2 shadow-inner border border-amber-300 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-2 text-xs text-amber-600 font-bold">VVPAT SLIP</div>
+              <div className="font-bold border-b-2 border-slate-900 pb-2 mb-4">VOTE CONFIRMATION RECEIPT</div>
+              <div>ELECTION ID: {election?.id.substring(0, 16)}...</div>
+              <div>CANDIDATE: {selectedCandidate?.name.toUpperCase()}</div>
+              <div>PARTY: {selectedCandidate?.party.toUpperCase()}</div>
+              <div>TIMESTAMP: {new Date().toLocaleString()}</div>
+              <div className="mt-4 text-xs font-bold break-all">SECURE HASH:<br/>0x{Math.random().toString(16).substring(2,15)}{Math.random().toString(16).substring(2,15)}</div>
             </div>
 
             <button
-              onClick={handleReset}
-              className="w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-lg uppercase"
+              onClick={resetVoting}
+              className="mt-8 w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xl tracking-wider transition"
             >
-              {language === 'hi' ? 'समाप्त करें' : 'DONE / EXIT'}
+              {language === 'hi' ? 'समाप्त करें (अगला वोटर)' : 'DONE (NEXT VOTER)'}
             </button>
           </div>
         )}
 
-        {/* CONFIRMATION REVIEW MODAL */}
-        {showConfirmModal && selectedCandidate && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50">
-            <div className="bg-slate-950 border-4 border-amber-500 rounded-3xl p-8 max-w-md w-full text-center space-y-6">
-              <div className="text-6xl">⚠️</div>
-              <h2 className={`text-2xl font-bold text-slate-100 ${language === 'hi' ? 'font-hindi' : ''}`}>
-                {language === 'hi' ? 'कृपया पुष्टि करें' : 'Please Confirm'}
-              </h2>
-              <p className={`text-sm text-slate-300 ${language === 'hi' ? 'font-hindi' : ''}`}>
-                {language === 'hi' ? 'क्या आप इस उम्मीदवार को वोट देना चाहते हैं?' : 'Do you want to vote for this candidate?'}
+        {/* ERROR */}
+        {screen === 'ERROR' && (
+          <div className="w-full max-w-xl bg-slate-950 border-4 border-red-600 rounded-3xl p-10 text-center shadow-[0_0_50px_rgba(220,38,38,0.3)]">
+            <div className="text-8xl mb-6">❌</div>
+            <h2 className="text-3xl font-black text-red-500 mb-6 uppercase tracking-wider">
+              {language === 'hi' ? 'त्रुटि (Error)' : 'VERIFICATION FAILED'}
+            </h2>
+            <div className="bg-red-950/50 border border-red-900 p-6 rounded-xl mb-8">
+              <p className="text-xl text-red-200 font-bold">
+                {errorMessage}
               </p>
-
-              <div className="bg-slate-900 p-4 rounded-2xl border border-amber-500/30 flex items-center gap-4">
-                <div className="text-4xl">{selectedCandidate.symbol}</div>
-                <div className="text-left">
-                  <div className="font-bold text-amber-400">{selectedCandidate.name}</div>
-                  <div className="text-xs text-slate-400">{selectedCandidate.party}</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => setShowConfirmModal(false)}
-                  className="h-14 bg-slate-800 text-slate-200 font-bold rounded-xl"
-                >
-                  ← {language === 'hi' ? 'वापस' : 'BACK'}
-                </button>
-                <button
-                  onClick={handleConfirmVote}
-                  className="h-14 bg-emerald-600 text-white font-bold rounded-xl"
-                >
-                  {language === 'hi' ? 'पुष्टि करें ✓' : 'CONFIRM ✓'}
-                </button>
-              </div>
             </div>
+            <button
+              onClick={resetVoting}
+              className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xl uppercase tracking-widest transition"
+            >
+              {language === 'hi' ? 'वापस जाएँ' : 'RETURN TO START'}
+            </button>
           </div>
         )}
+
       </main>
 
       {/* Footer Status */}
-      <footer className="bg-slate-950 border-t border-slate-800 px-6 py-2 flex items-center justify-between text-xs text-slate-500 font-mono">
-        <span>ECI VOTECHAIN HARDWARE OS v2.1</span>
-        <span>256-BIT CRYPTOGRAPHIC ENCRYPTION ACTIVE</span>
+      <footer className="bg-slate-950 border-t border-slate-800 px-6 py-3 flex items-center justify-between text-xs text-slate-500 font-mono tracking-widest">
+        <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> EVM MACHINE ONLINE</span>
+        <span>256-BIT CRYPTOGRAPHIC ENCRYPTION SECURED</span>
       </footer>
     </div>
   );

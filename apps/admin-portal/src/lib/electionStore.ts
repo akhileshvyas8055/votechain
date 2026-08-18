@@ -76,6 +76,42 @@ function read<T>(key: string, fallback: T[]): T[] {
 function write<T>(key: string, data: T[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(key, JSON.stringify(data));
+  // Sync to backend for EVM machine
+  fetch('http://localhost:4000/api/mock/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, data })
+  }).catch(() => {});
+}
+
+// Auto-sync on load
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    ['votechain_elections', 'votechain_voters'].forEach(key => {
+      const data = localStorage.getItem(key);
+      if (data) {
+        fetch('http://localhost:4000/api/mock/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, data: JSON.parse(data) })
+        }).catch(() => {});
+      }
+    });
+  }, 1000);
+
+  // Poll backend for new votes
+  setInterval(() => {
+    fetch('http://localhost:4000/api/mock/data')
+      .then(res => res.json())
+      .then(data => {
+        if (data.elections) localStorage.setItem('votechain_elections', JSON.stringify(data.elections));
+        if (data.voters) localStorage.setItem('votechain_voters', JSON.stringify(data.voters));
+        if (data.audit) localStorage.setItem('votechain_audit', JSON.stringify(data.audit));
+        // Force Next.js re-render by triggering a fake storage event
+        window.dispatchEvent(new Event('storage'));
+      })
+      .catch(() => {});
+  }, 5000);
 }
 
 function generateTxHash(): string {
