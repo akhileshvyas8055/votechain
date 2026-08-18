@@ -6,7 +6,7 @@
   "author": "VoteChain Team",
   "license": "MIT",
   "engines": {
-    "node": "20.x"
+    "node": ">=20.0.0"
   },
   "workspaces": [
     "apps/*",
