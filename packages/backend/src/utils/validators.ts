@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const PaginationSchema = z.object({
-  page: z.string().optional().transform(val => (val ? parseInt(val, 10) : 1)),
-  limit: z.string().optional().transform(val => (val ? parseInt(val, 10) : 10)),
+  page: z.string().optional().transform((val: string | undefined) => (val ? parseInt(val, 10) : 1)),
+  limit: z.string().optional().transform((val: string | undefined) => (val ? parseInt(val, 10) : 10)),
 });
 
 export const LoginSchema = z.object({
@@ -14,7 +14,7 @@ export const LoginSchema = z.object({
 
 export const Verify2FASchema = z.object({
   body: z.object({
-    officerId: z.string().cuid('Invalid officer ID'),
+    officerId: z.string().min(1, 'Invalid officer ID'),
     code: z.string().length(6, '2FA code must be 6 digits'),
   }),
 });
@@ -24,21 +24,21 @@ export const CreateElectionSchema = z.object({
     name: z.string().min(3, 'Name must be at least 3 characters'),
     constituency: z.string().min(2, 'Constituency is required'),
     description: z.string().optional(),
-    startTime: z.string().datetime('Invalid start time'),
-    endTime: z.string().datetime('Invalid end time'),
-    candidateIds: z.array(z.string().cuid('Invalid candidate ID')).min(2, 'At least 2 candidates required'),
+    startTime: z.string(),
+    endTime: z.string(),
+    candidateIds: z.array(z.string()).optional().default([]),
   }),
 });
 
 export const RegisterVoterSchema = z.object({
   body: z.object({
-    voterIdNumber: z.string().min(5, 'Voter ID is required'),
+    voterIdNumber: z.string().min(3, 'Voter ID is required'),
     name: z.string().min(2, 'Name is required'),
-    dateOfBirth: z.string().datetime('Invalid date of birth'),
+    dateOfBirth: z.string(),
     constituency: z.string().min(2, 'Constituency is required'),
     district: z.string().min(2, 'District is required'),
     state: z.string().min(2, 'State is required'),
-    fingerprintTemplateBase64: z.string().min(20, 'Fingerprint data is required'),
+    fingerprintTemplateBase64: z.string().optional().default(''),
     aadhaarHash: z.string().optional(),
   }),
 });

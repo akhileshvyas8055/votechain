@@ -15,6 +15,9 @@ const VoterRegistryABI = [
   'function registerVoter(string voterId, bytes32 fingerprintHash, string constituency) external',
   'function batchRegisterVoters(string[] voterIds, bytes32[] fingerprintHashes, string[] constituencies) external',
   'function isVoterRegistered(bytes32 fingerprintHash) external view returns (bool)',
+  'function hasVoterVoted(bytes32 fingerprintHash) external view returns (bool)',
+  'function getVoterConstituency(bytes32 fingerprintHash) external view returns (string)',
+  'event VoterRegistered(string voterId, bytes32 indexed fingerprintHash, string constituency, address indexed registeredBy, uint256 timestamp)',
 ];
 
 const CandidateRegistryABI = [
@@ -24,8 +27,15 @@ const CandidateRegistryABI = [
 const ElectionManagerABI = [
   'function createElection(string name, string constituency, uint256 startTime, uint256 endTime, uint256[] candidateIds) external returns (uint256)',
   'function startElection(uint256 electionId) external',
+  'function pauseElection(uint256 electionId, string reason) external',
+  'function resumeElection(uint256 electionId) external',
   'function endElection(uint256 electionId) external',
   'function getElectionStatus(uint256 electionId) external view returns (uint8)',
+  'event ElectionCreated(uint256 indexed electionId, string name, string constituency, address indexed createdBy, uint256 startTime, uint256 endTime)',
+  'event ElectionStarted(uint256 indexed electionId, address indexed startedBy, uint256 timestamp)',
+  'event ElectionPaused(uint256 indexed electionId, address indexed pausedBy, string reason, uint256 timestamp)',
+  'event ElectionResumed(uint256 indexed electionId, address indexed resumedBy, uint256 timestamp)',
+  'event ElectionEnded(uint256 indexed electionId, address indexed endedBy, uint256 totalVotes, uint256 timestamp)',
 ];
 
 const ResultsManagerABI = [

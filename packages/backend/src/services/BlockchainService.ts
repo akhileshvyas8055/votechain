@@ -18,7 +18,7 @@ export class BlockchainService {
     while (attempt < maxRetries) {
       try {
         // Estimate gas
-        const estimatedGas = await contract[methodName].estimateGas(...args);
+        const estimatedGas = await (contract as any)[methodName].estimateGas(...args);
         
         // Add 20% buffer
         const gasLimit = (estimatedGas * 120n) / 100n;
@@ -28,7 +28,7 @@ export class BlockchainService {
           gasLimit
         };
 
-        const tx = await contract[methodName](...args, txOptions);
+        const tx = await (contract as any)[methodName](...args, txOptions);
         logger.info(`Transaction ${tx.hash} submitted to network (${methodName})`);
         
         const receipt = await tx.wait();
@@ -58,24 +58,31 @@ export class BlockchainService {
    * Listen to blockchain events for an election
    */
   static listenToVoteEvents(electionId: string, onVoteReceived: (data: any) => void) {
+    if (!votingCoreContract || !votingCoreContract.filters || !votingCoreContract.filters.VoteCast) {
+      logger.warn('VotingCore contract filters unavailable');
+      return () => {};
+    }
+
     const parsedId = parseInt(electionId, 10);
     const filter = votingCoreContract.filters.VoteCast(parsedId, null, null, null, null);
     
-    votingCoreContract.on(filter, (eId, cId, boothId, timestamp, voteIdx, event) => {
+    votingCoreContract.on(filter, (eId: any, cId: any, boothId: string, timestamp: any, voteIdx: any, event: any) => {
       onVoteReceived({
         electionId: eId.toString(),
         candidateId: cId.toString(),
         boothId,
         timestamp: new Date(Number(timestamp) * 1000),
         voteIndex: voteIdx.toString(),
-        txHash: event.log.transactionHash
+        txHash: event?.log?.transactionHash || ''
       });
     });
 
     logger.info(`Started listening to VoteCast events for election ${electionId}`);
     
     return () => {
-      votingCoreContract.off(filter);
+      if (votingCoreContract) {
+        votingCoreContract.off(filter);
+      }
     };
   }
 
@@ -83,9 +90,9 @@ export class BlockchainService {
    * Estimate gas cost for an operation (in wei)
    */
   static async estimateGasCost(contract: ethers.Contract, method: string, args: any[]): Promise<bigint> {
-    const gasLimit = await contract[method].estimateGas(...args);
+    const gasLimit = await (contract as any)[method].estimateGas(...args);
     const feeData = await provider.getFeeData();
-    const gasPrice = feeData.gasPrice || 0n;
+    const gasPrice = feeData.gasPrice ?? 0n;
     return gasLimit * gasPrice;
   }
 }

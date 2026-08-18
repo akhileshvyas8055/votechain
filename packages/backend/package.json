@@ -13,11 +13,11 @@
     "lint:fix": "eslint 'src/**/*.ts' --fix",
     "clean": "rimraf dist coverage node_modules",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "prisma migrate dev",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:migrate": "npx -y prisma@5.8.1 migrate dev",
+    "db:generate": "npx -y prisma@5.8.1 generate",
+    "db:push": "npx -y prisma@5.8.1 db push",
+    "db:seed": "npx -y prisma@5.8.1 db seed",
+    "db:studio": "npx -y prisma@5.8.1 studio"
   },
   "dependencies": {
     "@prisma/client": "^5.8.1",

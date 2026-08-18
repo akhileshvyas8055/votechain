@@ -36,13 +36,14 @@ export class AuthService {
     };
 
     const accessToken = jwt.sign(payload, env.JWT_SECRET, {
-      expiresIn: env.JWT_EXPIRES_IN,
+      expiresIn: env.JWT_EXPIRES_IN as any,
     });
 
     const refreshToken = generateSecureToken();
 
     // Store refresh token in Redis (7 days TTL by default)
-    const ttlMatches = env.JWT_REFRESH_EXPIRES_IN.match(/(\d+)d/);
+    const refreshExpires = env.JWT_REFRESH_EXPIRES_IN || '7d';
+    const ttlMatches = refreshExpires.match(/(\d+)d/);
     const ttlDays = ttlMatches ? parseInt(ttlMatches[1], 10) : 7;
     await cacheSet(`rt_${refreshToken}`, officer.id, ttlDays * 24 * 60 * 60);
 
@@ -63,7 +64,6 @@ export class AuthService {
    */
   static async logout(accessToken: string, refreshToken?: string) {
     // Add access token to blacklist in Redis (using a standard TTL based on expiry)
-    // To be precise we should decode and set TTL to remaining time, but 24h is safe fallback
     await cacheSet(`bl_${accessToken}`, 'revoked', 24 * 60 * 60);
 
     // Delete refresh token if provided
@@ -97,12 +97,13 @@ export class AuthService {
     };
 
     const newAccessToken = jwt.sign(payload, env.JWT_SECRET, {
-      expiresIn: env.JWT_EXPIRES_IN,
+      expiresIn: env.JWT_EXPIRES_IN as any,
     });
 
     // Rotate refresh token
     const newRefreshToken = generateSecureToken();
-    const ttlMatches = env.JWT_REFRESH_EXPIRES_IN.match(/(\d+)d/);
+    const refreshExpires = env.JWT_REFRESH_EXPIRES_IN || '7d';
+    const ttlMatches = refreshExpires.match(/(\d+)d/);
     const ttlDays = ttlMatches ? parseInt(ttlMatches[1], 10) : 7;
     
     await cacheDel(`rt_${refreshToken}`);
@@ -179,13 +180,13 @@ export class AuthService {
       throw new Error('Token expired');
     }
 
-    return { boothCode, machineId };
+    return { boothCode: boothCode!, machineId: machineId! };
   }
 
   /**
    * Placeholder for 2FA Verification.
    */
-  static async verifyTwoFactor(officerId: string, code: string): Promise<boolean> {
+  static async verifyTwoFactor(_officerId: string, code: string): Promise<boolean> {
     // Implement TOTP verification (e.g., speakeasy)
     return code === '123456'; // Dummy implementation for development
   }

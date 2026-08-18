@@ -39,12 +39,12 @@ export const authLimiter = rateLimit({
 export const voteLimiter = rateLimit({
   windowMs: 1000, // 1 second
   max: 1, // 1 vote per second per machine
-  keyGenerator: (req) => {
+  keyGenerator: (req: Request): string => {
     // Rate limit based on machine ID instead of IP
     const machineToken = req.headers['x-machine-token'] as string;
     if (machineToken) {
       const parts = machineToken.split(':');
-      if (parts.length > 1) return parts[1]; // machineId
+      if (parts[1]) return parts[1]; // machineId
     }
     return req.ip || 'unknown';
   },
