@@ -1,0 +1,183 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Election {
+  id                String      @id @default(cuid())
+  name              String
+  constituency      String
+  description       String?
+  startTime         DateTime
+  endTime           DateTime
+  status            ElectionStatus @default(CREATED)
+  contractAddress   String?
+  chainId           Int
+  totalVotes        Int         @default(0)
+  createdBy         String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  candidates        Candidate[]
+  booths            Booth[]
+  auditLogs         AuditLog[]
+  voteTransactions  VoteTransaction[]
+}
+
+model Candidate {
+  id                    String    @id @default(cuid())
+  electionId            String
+  name                  String
+  party                 String
+  symbol                String
+  photoIPFSHash         String?
+  photoUrl              String?
+  blockchainCandidateId Int
+  constituency          String
+  status                CandidateStatus @default(ACTIVE)
+  nominationDate        DateTime
+  createdAt             DateTime  @default(now())
+  
+  election              Election  @relation(fields: [electionId], references: [id])
+}
+
+model Voter {
+  id                      String    @id @default(cuid())
+  voterIdNumber           String    @unique
+  name                    String
+  dateOfBirth             DateTime
+  constituency            String
+  district                String
+  state                   String
+  fingerprintHashEncrypted String   
+  aadhaarHash             String?   @unique
+  walletAddress           String?
+  isRegistered            Boolean   @default(false)
+  registeredAt            DateTime?
+  registeredBy            String?
+  isActive                Boolean   @default(true)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
+
+model Booth {
+  id              String    @id @default(cuid())
+  boothCode       String    @unique
+  electionId      String
+  name            String
+  location        String
+  district        String
+  state           String
+  officerId       String
+  machineId       String?   @unique
+  machineAddress  String?
+  isActive        Boolean   @default(true)
+  totalVotes      Int       @default(0)
+  openedAt        DateTime?
+  closedAt        DateTime?
+  
+  election        Election  @relation(fields: [electionId], references: [id])
+  officer         ElectionOfficer @relation(fields: [officerId], references: [id])
+  voteTransactions VoteTransaction[]
+}
+
+model ElectionOfficer {
+  id              String    @id @default(cuid())
+  name            String
+  employeeId      String    @unique
+  email           String    @unique
+  passwordHash    String
+  role            OfficerRole
+  walletAddress   String?
+  isActive        Boolean   @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  
+  booths          Booth[]
+  auditLogs       AuditLog[]
+}
+
+model VoteTransaction {
+  id            String    @id @default(cuid())
+  txHash        String    @unique
+  blockNumber   BigInt
+  boothId       String
+  electionId    String
+  candidateId   String
+  timestamp     DateTime
+  status        TxStatus  @default(PENDING)
+  gasUsed       BigInt?
+  createdAt     DateTime  @default(now())
+  
+  booth         Booth     @relation(fields: [boothId], references: [id])
+  election      Election  @relation(fields: [electionId], references: [id])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  action      String
+  performedBy String
+  officerId   String?
+  electionId  String?
+  entityType  String
+  entityId    String
+  oldValue    Json?
+  newValue    Json?
+  ipAddress   String
+  userAgent   String?
+  timestamp   DateTime  @default(now())
+  
+  officer     ElectionOfficer? @relation(fields: [officerId], references: [id])
+  election    Election?  @relation(fields: [electionId], references: [id])
+}
+
+model SystemConfig {
+  key         String    @id
+  value       String
+  description String?
+  updatedBy   String
+  updatedAt   DateTime  @updatedAt
+}
+
+model MachineToken {
+  id          String    @id @default(cuid())
+  boothCode   String    @unique
+  tokenHash   String    @unique
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+}
+
+enum ElectionStatus {
+  CREATED
+  REGISTRATION
+  ACTIVE
+  PAUSED
+  ENDED
+  CERTIFIED
+}
+
+enum CandidateStatus {
+  ACTIVE
+  WITHDRAWN
+  DISQUALIFIED
+}
+
+enum OfficerRole {
+  SUPER_ADMIN
+  ELECTION_COMMISSIONER
+  RETURNING_OFFICER
+  BOOTH_OFFICER
+  AUDITOR
+}
+
+enum TxStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}

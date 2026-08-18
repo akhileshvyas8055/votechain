@@ -1,0 +1,20 @@
+FROM node:20-alpine AS builder
+WORKDIR /app
+RUN npm install -g pnpm
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/backend/package.json ./packages/backend/
+RUN pnpm install --frozen-lockfile
+COPY packages/backend ./packages/backend
+WORKDIR /app/packages/backend
+RUN pnpm build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV production
+RUN npm install -g pnpm
+COPY packages/backend/package.json ./
+RUN pnpm install --prod
+COPY --from=builder /app/packages/backend/dist ./dist
+COPY --from=builder /app/packages/backend/prisma ./prisma
+EXPOSE 4000
+CMD ["node", "dist/server.js"]

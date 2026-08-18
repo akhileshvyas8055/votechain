@@ -1,0 +1,88 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Hardhat / Blockchain
+artifacts/
+cache/
+typechain-types/
+deployments/localhost/
+deployments/*.json
+!deployments/.gitkeep
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+prisma/migrations/**/migration_lock.toml
+
+# Docker
+docker-compose.override.yml
+
+# Turborepo
+.turbo
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+
+# Misc
+*.tgz
+.cache/
+.parcel-cache/
+.sass-cache/
+*.pid
+*.seed
+*.pid.lock
+
+# Secrets - NEVER commit
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/

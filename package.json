@@ -1,0 +1,59 @@
+{
+  "name": "votechain-evm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VoteChain EVM - Blockchain-Based Electronic Voting Machine System",
+  "author": "VoteChain Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rimraf node_modules",
+    "prepare": "husky install",
+    "precommit": "lint-staged",
+    "contracts:deploy": "turbo run deploy --filter=@votechain/contracts",
+    "contracts:test": "turbo run test --filter=@votechain/contracts",
+    "backend:dev": "turbo run dev --filter=@votechain/backend",
+    "admin:dev": "turbo run dev --filter=@votechain/admin-portal",
+    "results:dev": "turbo run dev --filter=@votechain/results-portal",
+    "evm:dev": "turbo run dev --filter=@votechain/evm-software",
+    "db:migrate": "pnpm --filter @votechain/backend prisma migrate dev",
+    "db:seed": "pnpm --filter @votechain/backend prisma db seed",
+    "db:studio": "pnpm --filter @votechain/backend prisma studio"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-security": "^2.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.2.0",
+    "rimraf": "^5.0.0",
+    "turbo": "^1.12.0",
+    "typescript": "^5.3.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ]
+  }
+}

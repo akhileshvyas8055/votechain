@@ -1,0 +1,18 @@
+FROM node:20-alpine AS builder
+WORKDIR /app
+RUN npm install -g pnpm
+COPY package.json pnpm-workspace.yaml ./
+COPY apps/admin-portal/package.json ./apps/admin-portal/
+RUN pnpm install
+COPY apps/admin-portal ./apps/admin-portal
+WORKDIR /app/apps/admin-portal
+RUN pnpm build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV production
+COPY --from=builder /app/apps/admin-portal/public ./public
+COPY --from=builder /app/apps/admin-portal/.next/standalone ./
+COPY --from=builder /app/apps/admin-portal/.next/static ./.next/static
+EXPOSE 3000
+CMD ["node", "server.js"]
