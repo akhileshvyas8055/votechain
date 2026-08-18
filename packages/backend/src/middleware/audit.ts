@@ -31,9 +31,9 @@ export const auditLog = (options: AuditOptions) => {
       // Only log successful actions
       if (res.statusCode >= 200 && res.statusCode < 300) {
         try {
-          const officerId = req.user?.officerId;
+          const rawOfficerId = req.user?.officerId;
           const machineId = req.machine?.machineId;
-          const performedBy = officerId || machineId || 'SYSTEM';
+          const performedBy = rawOfficerId || machineId || 'SYSTEM';
           
           let entityId = '';
           if (options.getEntityId) {
@@ -60,19 +60,22 @@ export const auditLog = (options: AuditOptions) => {
           }
 
           // 1. Save to Database
-          await prisma.auditLog.create({
-            data: {
-              action: options.action,
-              performedBy,
-              officerId,
-              entityType: options.entityType,
-              entityId,
-              oldValue: oldValue ? JSON.stringify(oldValue) : null,
-              newValue: newValue ? JSON.stringify(newValue) : null,
-              ipAddress: req.ip || 'unknown',
-              userAgent: req.get('user-agent'),
-            },
-          });
+          try {
+            await prisma.auditLog.create({
+              data: {
+                action: options.action,
+                performedBy,
+                entityType: options.entityType,
+                entityId,
+                oldValue: oldValue ? JSON.stringify(oldValue) : null,
+                newValue: newValue ? JSON.stringify(newValue) : null,
+                ipAddress: req.ip || 'unknown',
+                userAgent: req.get('user-agent'),
+              },
+            });
+          } catch (dbErr) {
+            logger.warn('Prisma auditLog create warning:', dbErr);
+          }
 
           // 2. Log to Blockchain (non-blocking)
           // Map action string to enum index based on AuditTrail contract

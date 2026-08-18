@@ -1,71 +1,72 @@
 'use client';
 
-import { useState } from 'react';
-import { ShieldCheck, CheckCircle2 } from 'lucide-react';
-
-interface AuditRecord {
-  id: string;
-  action: string;
-  performer: string;
-  timestamp: string;
-  entityHash: string;
-  boothId: string;
-}
+import { useState, useEffect } from 'react';
+import * as store from '@/lib/electionStore';
+import { BackButton } from '@/components/layout/BackButton';
 
 export default function AuditPage() {
-  const [logs] = useState<AuditRecord[]>([]);
+  const [entries, setEntries] = useState<store.AuditEntry[]>([]);
+
+  useEffect(() => {
+    setEntries(store.getAllAuditEntries());
+  }, []);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100">Blockchain Audit Log</h1>
-          <p className="text-slate-400 text-sm mt-1">Immutable chain-of-hash audit trail from the AuditTrail contract</p>
-        </div>
+    <div className="space-y-6 pb-16">
+      <BackButton href="/" label="Back to Dashboard" />
 
-        <div className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-xl text-xs border border-emerald-500/20 font-semibold">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Chain Integrity Verified</span>
-        </div>
+      <div className="border-b border-slate-800/80 pb-6">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+          <span className="material-symbols-outlined text-emerald-400 text-3xl sm:text-4xl">verified_user</span>
+          Blockchain Audit Trail
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-400 mt-1 font-mono">
+          Immutable transaction log • {entries.length} entries recorded
+        </p>
       </div>
 
-      <div className="glass-panel rounded-2xl border border-dark-border overflow-hidden">
-        {logs.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 space-y-3">
-            <ShieldCheck className="w-12 h-12 text-slate-600 mx-auto" />
-            <h3 className="text-base font-semibold text-slate-300">No Blockchain Audit Logs Recorded Yet</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Transactions, voter registrations, and vote commitments will be appended to the immutable AuditTrail smart contract automatically.
-            </p>
+      <div className="glass-card overflow-hidden">
+        {entries.length === 0 ? (
+          <div className="p-12 text-center text-slate-500 space-y-3">
+            <span className="material-symbols-outlined text-5xl text-slate-600">security</span>
+            <p className="text-sm font-semibold text-slate-300">No Audit Entries Yet</p>
+            <p className="text-xs text-slate-500">Create an election or register a voter to generate audit trail entries.</p>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-dark-border bg-dark-card/40 text-xs font-semibold uppercase text-slate-400">
-                <th className="py-3.5 px-4">Index</th>
-                <th className="py-3.5 px-4">Action</th>
-                <th className="py-3.5 px-4">Performer Address</th>
-                <th className="py-3.5 px-4">Entity Hash</th>
-                <th className="py-3.5 px-4">Booth</th>
-                <th className="py-3.5 px-4">Timestamp</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-dark-border/60 text-xs text-slate-300">
-              {logs.map((log) => (
-                <tr key={log.id} className="hover:bg-dark-card/50 transition">
-                  <td className="py-3.5 px-4 font-mono text-brand-400">#{log.id}</td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-200">{log.action}</td>
-                  <td className="py-3.5 px-4 font-mono text-slate-400 truncate max-w-[150px]">{log.performer}</td>
-                  <td className="py-3.5 px-4 font-mono text-slate-400 truncate max-w-[120px]">{log.entityHash}</td>
-                  <td className="py-3.5 px-4">{log.boothId}</td>
-                  <td className="py-3.5 px-4 text-slate-500">{new Date(log.timestamp).toLocaleString()}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-800/80 bg-slate-900/40">
+                  <th className="text-left text-[11px] text-slate-400 font-bold uppercase tracking-wider px-5 py-3">Tx Hash</th>
+                  <th className="text-left text-[11px] text-slate-400 font-bold uppercase tracking-wider px-5 py-3">Action</th>
+                  <th className="text-left text-[11px] text-slate-400 font-bold uppercase tracking-wider px-5 py-3">Entity</th>
+                  <th className="text-left text-[11px] text-slate-400 font-bold uppercase tracking-wider px-5 py-3">Performed By</th>
+                  <th className="text-left text-[11px] text-slate-400 font-bold uppercase tracking-wider px-5 py-3">Time</th>
+                  <th className="text-right text-[11px] text-slate-400 font-bold uppercase tracking-wider px-5 py-3">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="text-sm">
+                {entries.map((entry) => (
+                  <tr key={entry.id} className="border-b border-slate-800/40 hover:bg-slate-800/30 transition-colors">
+                    <td className="px-5 py-3.5 font-mono text-brand text-xs">{entry.txHash.slice(0, 10)}...{entry.txHash.slice(-4)}</td>
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex px-2.5 py-1 rounded-md text-[10px] font-bold border bg-blue-500/10 text-blue-400 border-blue-500/20">
+                        {entry.action}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-xs text-slate-400">{entry.entityType}</td>
+                    <td className="px-5 py-3.5 text-xs text-slate-400">{entry.performedBy}</td>
+                    <td className="px-5 py-3.5 text-xs text-slate-500 font-mono">{new Date(entry.timestamp).toLocaleString()}</td>
+                    <td className="px-5 py-3.5 text-right">
+                      <span className="text-xs font-semibold text-emerald-400">{entry.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
   );
 }
-

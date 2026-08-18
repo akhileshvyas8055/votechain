@@ -1,147 +1,181 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LiveVoteChart } from '@/components/results/LiveVoteChart';
-import { api } from '@/lib/api';
-
-interface ResultItem {
-  candidateId: string;
-  candidateName: string;
-  party: string;
-  votes: number;
-  percentage: number;
-}
+import { useSearchParams } from 'next/navigation';
+import * as store from '@/lib/electionStore';
+import { BackButton } from '@/components/layout/BackButton';
+import Link from 'next/link';
 
 export default function LiveResultsPage() {
-  const [results, setResults] = useState<ResultItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [totalVotes, setTotalVotes] = useState<number>(0);
+  const searchParams = useSearchParams();
+  const electionIdFromQuery = searchParams.get('electionId');
 
-  useEffect(() => {
-    async function fetchResults() {
-      try {
-        setLoading(true);
-        // Attempt to fetch active election results if backend provides endpoint,
-        // otherwise default to empty state until election starts.
-        const res = await api.get('/elections/active');
-        const activeElections = res.data.data || [];
-        if (activeElections.length > 0 && activeElections[0].candidates) {
-          const candidates = activeElections[0].candidates;
-          const total = candidates.reduce((sum: number, c: any) => sum + (c.votes || 0), 0);
-          setTotalVotes(total);
-          setResults(candidates.map((c: any) => ({
-            candidateId: c.id,
-            candidateName: c.name,
-            party: c.party || 'Independent',
-            votes: c.votes || 0,
-            percentage: total > 0 ? Number(((c.votes || 0) / total * 100).toFixed(1)) : 0,
-          })));
-        } else {
-          setResults([]);
-          setTotalVotes(0);
-        }
-      } catch (err) {
-        console.error('Failed to fetch election results:', err);
-        setResults([]);
-        setTotalVotes(0);
-      } finally {
-        setLoading(false);
-      }
+  const [election, setElection] = useState<store.Election | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState('');
+
+  const fetchResults = () => {
+    setLoading(true);
+    const elections = store.getAllElections();
+    let selected: store.Election | null = null;
+
+    if (electionIdFromQuery) {
+      selected = elections.find((e) => e.id === electionIdFromQuery) || null;
+    }
+    if (!selected && elections.length > 0) {
+      selected = elections[0];
     }
 
-    fetchResults();
-  }, []);
+    setElection(selected);
+    setLastRefreshed(new Date().toLocaleTimeString());
+    setLoading(false);
+  };
 
-  const leader = results.length > 0 ? [...results].sort((a, b) => b.votes - a.votes)[0] : null;
+  useEffect(() => {
+    fetchResults();
+    const interval = setInterval(fetchResults, 10000);
+    return () => clearInterval(interval);
+  }, [electionIdFromQuery]);
+
+  const totalVotes = election ? election.candidates.reduce((s, c) => s + c.votes, 0) : 0;
+  const sortedCandidates = election ? [...election.candidates].sort((a, b) => b.votes - a.votes) : [];
+  const leader = sortedCandidates.length > 0 ? sortedCandidates[0] : null;
 
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="px-3 py-1 rounded-full bg-secondary/10 border border-secondary/30 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-secondary live-indicator"></div>
-              <span className="text-secondary font-label-caps text-[10px]">LIVE TALLY</span>
-            </div>
-            <span className="text-outline text-sm font-data-mono">Blockchain Verified</span>
-          </div>
-          <h1 className="font-display-lg text-headline-lg-mobile md:text-display-lg text-on-surface">Election Live Results</h1>
-          <p className="text-on-surface-variant mt-2 max-w-2xl">
-            Real-time cryptographically verified election results. Data is immutable and synchronized across the VoteChain network.
-          </p>
+    <div className="space-y-8 pb-16">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <BackButton href="/elections" label="Back to Elections" />
+        <div className="flex items-center gap-3">
+          <button onClick={fetchResults}
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+            <span className={`material-symbols-outlined text-sm text-brand ${loading ? 'animate-spin' : ''}`}>sync</span>
+            Refresh
+          </button>
+          {lastRefreshed && <span className="text-[11px] font-mono text-slate-500">Updated: {lastRefreshed}</span>}
         </div>
-      </header>
+      </div>
 
       {loading ? (
-        <div className="glass-panel p-12 text-center text-slate-400">Loading live election results...</div>
-      ) : results.length === 0 ? (
-        <div className="glass-panel rounded-xl p-12 text-center space-y-4">
-          <span className="material-symbols-outlined text-5xl text-slate-600">bar_chart</span>
-          <h2 className="text-xl font-bold text-slate-200">No Active Election Votes Recorded</h2>
-          <p className="text-sm text-slate-400 max-w-md mx-auto">
-            Once an election is deployed and votes are cast via EVM machine kiosks, real-time verified tallies will appear here automatically.
-          </p>
+        <div className="glass-card p-12 text-center text-slate-400 flex flex-col items-center gap-3">
+          <span className="material-symbols-outlined text-4xl text-brand animate-spin">sync</span>
+          <p className="text-sm font-semibold">Loading results...</p>
+        </div>
+      ) : !election ? (
+        <div className="glass-card p-12 text-center text-slate-400 space-y-4">
+          <span className="material-symbols-outlined text-5xl text-slate-600">how_to_vote</span>
+          <h3 className="text-base font-bold text-white">No Elections Found</h3>
+          <p className="text-xs text-slate-400 mt-1">Create an election first to view results.</p>
+          <Link href="/elections/create" className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-xs font-bold rounded-xl">
+            <span className="material-symbols-outlined text-sm">add_circle</span> Create Election
+          </Link>
         </div>
       ) : (
-        /* Bento Grid Layout */
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-          {/* Hero Leader Banner */}
-          {leader && (
-            <div className="col-span-1 md:col-span-8 glass-panel rounded-xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[260px] border-b border-primary/30" style={{ background: 'linear-gradient(135deg, rgba(38, 42, 51, 0.6) 0%, rgba(15, 19, 28, 0.8) 100%)' }}>
-              <div className="relative z-10 flex justify-between items-start">
-                <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-surface/50 border border-surface-variant">
-                  <span className="material-symbols-outlined text-tertiary fill">emoji_events</span>
-                  <span className="font-label-caps text-on-surface">Leading Candidate</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-on-surface-variant mb-1">Total Votes Processed</div>
-                  <div className="font-data-mono text-xl text-primary">{totalVotes.toLocaleString()}</div>
-                </div>
-              </div>
+        <div className="space-y-8">
+          {/* Title */}
+          <div className="border-b border-slate-800/80 pb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-extrabold flex items-center gap-2 tracking-wider uppercase">
+                <span className="relative w-2 h-2 rounded-full bg-emerald-400 pulse-dot" /> LIVE TALLY
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">{election.name}</h1>
+            <p className="text-xs text-slate-400 mt-1">Constituency: <span className="font-mono text-brand font-bold">{election.constituency}</span></p>
+          </div>
 
-              <div className="relative z-10 mt-6 flex flex-col md:flex-row items-center gap-6">
-                <div className="flex-1 text-center md:text-left">
-                  <h2 className="font-headline-lg text-3xl text-on-surface mb-1">{leader.candidateName}</h2>
-                  <div className="text-tertiary font-label-caps tracking-widest mb-3">{leader.party}</div>
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="glass-card p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Total Votes</p>
+              <p className="text-3xl font-extrabold text-white font-mono">{totalVotes.toLocaleString()}</p>
+            </div>
+            <div className="glass-card p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Candidates</p>
+              <p className="text-3xl font-extrabold text-brand font-mono">{election.candidates.length}</p>
+            </div>
+            <div className="glass-card p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Status</p>
+              <p className="text-3xl font-extrabold text-emerald-400 font-mono">{election.status}</p>
+            </div>
+          </div>
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm font-data-mono">
-                      <span className="text-primary font-bold text-2xl">{leader.percentage}%</span>
-                      <span className="text-on-surface-variant">{leader.votes.toLocaleString()} Votes</span>
+          {/* Leader Banner */}
+          {leader && totalVotes > 0 && (
+            <div className="glass-card p-6 sm:p-8 relative overflow-hidden border-brand/30">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-brand/10 rounded-full blur-3xl -z-10 pointer-events-none" />
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-brand flex items-center justify-center text-3xl shadow-xl shadow-brand/20 shrink-0">🏆</div>
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-1">
+                      <span className="material-symbols-outlined text-sm">emoji_events</span>
+                      {election.status === 'ENDED' ? 'Winner' : 'Leading'}
                     </div>
-                    <div className="w-full h-3 bg-surface-container-high rounded-full overflow-hidden border border-outline-variant/30">
-                      <div className="h-full bg-gradient-to-r from-primary to-tertiary rounded-full" style={{ width: `${leader.percentage}%` }}></div>
-                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white">{leader.name}</h2>
+                    <p className="text-xs text-slate-400 font-mono">Party: <span className="text-brand">{leader.party}</span></p>
                   </div>
+                </div>
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800/80 text-right min-w-[180px]">
+                  <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Vote Share</p>
+                  <p className="text-3xl font-extrabold text-brand font-mono">{totalVotes > 0 ? ((leader.votes / totalVotes) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">{leader.votes.toLocaleString()} votes</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Quick Stats */}
-          <div className="col-span-1 md:col-span-4 flex flex-col gap-gutter">
-            <div className="glass-panel rounded-xl p-6 flex-1 flex flex-col justify-center">
-              <div className="flex items-center gap-3 text-on-surface-variant mb-2">
-                <span className="material-symbols-outlined">network_check</span>
-                <h3 className="font-label-caps">Network Consensus</h3>
+          {/* Vote Breakdown */}
+          <div className="glass-card p-6 sm:p-8 space-y-6">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-brand">bar_chart</span> Vote Breakdown
+            </h3>
+            {sortedCandidates.length === 0 ? (
+              <p className="text-sm text-slate-400">No candidates registered yet.</p>
+            ) : (
+              <div className="space-y-5">
+                {sortedCandidates.map((cand, idx) => {
+                  const pct = totalVotes > 0 ? (cand.votes / totalVotes) * 100 : 0;
+                  return (
+                    <div key={cand.id} className="space-y-2">
+                      <div className="flex items-center justify-between text-xs sm:text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{cand.symbol}</span>
+                          <span className="font-bold text-white">{cand.name}</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-400 border border-slate-700">{cand.party}</span>
+                        </div>
+                        <div className="flex items-center gap-3 font-mono">
+                          <span className="text-slate-400 text-xs">{cand.votes.toLocaleString()} votes</span>
+                          <span className="font-extrabold text-brand text-sm">{pct.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                      <div className="w-full h-3.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
+                        <div className={`h-full rounded-full transition-all duration-700 ${idx === 0 ? 'bg-gradient-to-r from-brand to-amber-500 shadow-md shadow-brand/30' : 'bg-slate-700'}`}
+                          style={{ width: `${Math.max(pct, 2)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="font-data-mono text-2xl text-secondary">ACTIVE</div>
-            </div>
+            )}
           </div>
 
-          {/* Interactive Chart Section */}
-          <div className="col-span-1 md:col-span-12 glass-panel rounded-xl p-6 flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline-lg text-xl text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">bar_chart</span> Candidate Distribution
-              </h3>
+          {/* Blockchain */}
+          <div className="glass-card p-6 space-y-4">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-emerald-400">verified</span> Blockchain Verification
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+              <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-1">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Contract Address</p>
+                <p className="text-slate-300 break-all">{election.contractAddress}</p>
+              </div>
+              <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-1">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tx Hash</p>
+                <p className="text-brand break-all">{election.txHash}</p>
+              </div>
             </div>
-            <LiveVoteChart results={results} />
           </div>
         </div>
       )}
     </div>
   );
 }
-

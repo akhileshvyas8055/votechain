@@ -12,6 +12,7 @@ const router = Router();
 // All below require authentication
 router.use(authenticateJWT);
 
+router.get('/', ElectionController.getAllElections);
 router.get('/active', ElectionController.getActiveElections);
 
 // Election Commission Only

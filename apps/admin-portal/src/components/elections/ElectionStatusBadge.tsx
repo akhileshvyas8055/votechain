@@ -1,27 +1,20 @@
-import { clsx } from 'clsx';
+export function ElectionStatusBadge({ status }: { status: string }) {
+  let badgeStyle = 'bg-slate-800/80 text-slate-300 border-slate-700';
 
-interface BadgeProps {
-  status: 'CREATED' | 'REGISTRATION' | 'ACTIVE' | 'PAUSED' | 'ENDED' | 'CERTIFIED';
-}
+  if (status === 'ACTIVE') {
+    badgeStyle = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+  } else if (status === 'PAUSED') {
+    badgeStyle = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+  } else if (status === 'ENDED' || status === 'CERTIFIED') {
+    badgeStyle = 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+  } else if (status === 'CREATED' || status === 'REGISTRATION') {
+    badgeStyle = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+  }
 
-const statusStyles = {
-  CREATED: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-  REGISTRATION: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  ACTIVE: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 animate-pulse',
-  PAUSED: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  ENDED: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  CERTIFIED: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
-};
-
-export function ElectionStatusBadge({ status }: BadgeProps) {
   return (
-    <span
-      className={clsx(
-        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
-        statusStyles[status] || statusStyles.CREATED
-      )}
-    >
-      {status}
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${badgeStyle}`}>
+      {status === 'ACTIVE' && <span className="relative w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />}
+      <span>{status}</span>
     </span>
   );
 }

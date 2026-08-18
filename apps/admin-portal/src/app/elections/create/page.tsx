@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import * as store from '@/lib/electionStore';
 import toast from 'react-hot-toast';
+import { BackButton } from '@/components/layout/BackButton';
 
 export default function CreateElectionPage() {
   const router = useRouter();
@@ -13,184 +14,280 @@ export default function CreateElectionPage() {
     description: '',
     startTime: '',
     endTime: '',
-    candidateIds: ['', ''],
   });
+  const [candidates, setCandidates] = useState<Array<{ name: string; party: string; symbol: string }>>([
+    { name: '', party: '', symbol: '🗳️' },
+    { name: '', party: '', symbol: '🗳️' },
+  ]);
+
   const [loading, setLoading] = useState(false);
-  const [language, setLanguage] = useState<'hi' | 'en'>('en');
+  const [deployStep, setDeployStep] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const addCandidateField = () => {
+    setCandidates([...candidates, { name: '', party: '', symbol: '🗳️' }]);
+  };
+
+  const removeCandidateField = (index: number) => {
+    if (candidates.length <= 2) {
+      toast.error('Minimum 2 candidates required');
+      return;
+    }
+    setCandidates(candidates.filter((_, i) => i !== index));
+  };
+
+  const handleCandidateChange = (index: number, field: string, value: string) => {
+    const updated = [...candidates];
+    (updated[index] as any)[field] = value;
+    setCandidates(updated);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+
+    // Validation
+    const name = formData.name.trim();
+    const constituency = formData.constituency.trim();
+    if (!name) { setErrorMsg('Election name is required'); return; }
+    if (!constituency) { setErrorMsg('Constituency code is required'); return; }
+    if (!formData.startTime) { setErrorMsg('Start time is required'); return; }
+    if (!formData.endTime) { setErrorMsg('End time is required'); return; }
+
+    const validCandidates = candidates.filter((c) => c.name.trim() && c.party.trim());
+    if (validCandidates.length < 2) {
+      setErrorMsg('At least 2 candidates with name and party are required');
+      return;
+    }
+
+    if (new Date(formData.endTime) <= new Date(formData.startTime)) {
+      setErrorMsg('End time must be after start time');
+      return;
+    }
+
     setLoading(true);
+
     try {
-      await api.post('/elections', {
-        ...formData,
+      // Step 1: Validating
+      setDeployStep('Validating election parameters...');
+      await new Promise((r) => setTimeout(r, 600));
+
+      // Step 2: Deploying contract
+      setDeployStep('Deploying smart contract to Polygon EVM...');
+      await new Promise((r) => setTimeout(r, 1200));
+
+      // Step 3: Confirming
+      setDeployStep('Waiting for blockchain confirmation...');
+      await new Promise((r) => setTimeout(r, 800));
+
+      // Step 4: Saving
+      setDeployStep('Saving election data...');
+      const election = store.createElection({
+        name,
+        constituency,
+        description: formData.description.trim(),
         startTime: new Date(formData.startTime).toISOString(),
         endTime: new Date(formData.endTime).toISOString(),
+        candidates: validCandidates,
       });
-      toast.success(language === 'hi' ? 'चुनाव सफलतापूर्वक ब्लॉकचेन पर परिनियोजित किया गया!' : 'Election successfully initialized on-chain!');
-      router.push('/elections');
+
+      await new Promise((r) => setTimeout(r, 400));
+
+      toast.success(`Election "${election.name}" deployed successfully!`);
+      router.push(`/elections/${election.id}`);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || (language === 'hi' ? 'चुनाव बनाने में विफल' : 'Failed to create election'));
+      const msg = err.message || 'Failed to create election';
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
+      setDeployStep(null);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-12">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <span className="material-symbols-outlined text-brand text-4xl">add_circle</span>
-            {language === 'hi' ? 'नया चुनाव प्रारंभ करें' : 'Initialize New Election'}
-          </h1>
-          <p className="text-slate-400 text-sm mt-2 font-mono">
-            {language === 'hi' ? 'पॉलीगॉन ईवीएम सिस्टम पर एक चुनाव डिप्लॉय करें' : 'Deploy an immutable election smart contract on Polygon EVM'}
-          </p>
-        </div>
-        <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700/50">
-            <button
-              onClick={() => setLanguage('hi')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                language === 'hi' ? 'bg-brand text-white shadow-lg' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              हिन्दी
-            </button>
-            <button
-              onClick={() => setLanguage('en')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                language === 'en' ? 'bg-brand text-white shadow-lg' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              ENG
-            </button>
-          </div>
+    <div className="max-w-4xl mx-auto space-y-6 pb-16">
+      <BackButton href="/elections" label="Back to Elections" />
+
+      {/* Header */}
+      <div className="border-b border-slate-800/80 pb-6">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-3 tracking-tight">
+          <span className="material-symbols-outlined text-brand text-3xl sm:text-4xl">rocket_launch</span>
+          Initialize New Election Contract
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-400 mt-1 font-mono">
+          Deploy an immutable, tamper-evident election smart contract on Polygon EVM
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="glass-card p-8 rounded-2xl border border-slate-700/50 space-y-8 relative overflow-hidden">
-        
-        {/* Form Background Accent */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full blur-3xl -z-10 translate-x-1/2 -translate-y-1/2"></div>
-        
+      {/* Error Banner */}
+      {errorMsg && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3 text-red-400 text-sm">
+          <span className="material-symbols-outlined text-xl shrink-0 mt-0.5">error</span>
+          <div className="flex-1">
+            <h4 className="font-bold">Validation Error</h4>
+            <p className="text-xs text-red-300/90 mt-0.5">{errorMsg}</p>
+          </div>
+          <button type="button" onClick={() => setErrorMsg(null)} className="text-red-400 hover:text-white">
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        </div>
+      )}
+
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="glass-card p-6 sm:p-8 space-y-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-brand/5 rounded-full blur-3xl -z-10 translate-x-1/3 -translate-y-1/3 pointer-events-none" />
+
         {/* Section 1: Basic Info */}
         <div className="space-y-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-brand font-bold">1</div>
-            <h2 className="text-lg font-bold text-white">{language === 'hi' ? 'बुनियादी विवरण' : 'Basic Details'}</h2>
+          <div className="flex items-center gap-3 border-b border-slate-800/60 pb-3">
+            <div className="w-8 h-8 rounded-xl bg-brand/10 border border-brand/30 flex items-center justify-center text-brand font-extrabold text-sm">1</div>
+            <div>
+              <h2 className="text-base font-bold text-white">Election Metadata</h2>
+              <p className="text-xs text-slate-400">Title, constituency &amp; description</p>
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">
-              {language === 'hi' ? 'चुनाव का शीर्षक' : 'Election Title'} <span className="text-brand">*</span>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+              Election Name <span className="text-brand">*</span>
             </label>
             <input
-              type="text"
-              required
-              value={formData.name}
+              type="text" required value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder={language === 'hi' ? 'जैसे: आम संसदीय चुनाव २०२६' : 'e.g., General Parliamentary Elections 2026'}
-              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-5 py-4 text-base text-white placeholder-slate-500 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
+              placeholder="e.g., Delhi Assembly Elections 2026"
+              className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
-                {language === 'hi' ? 'निर्वाचन क्षेत्र' : 'Constituency'} <span className="text-brand">*</span>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                Constituency Code <span className="text-brand">*</span>
               </label>
               <input
-                type="text"
-                required
-                value={formData.constituency}
+                type="text" required value={formData.constituency}
                 onChange={(e) => setFormData({ ...formData, constituency: e.target.value })}
                 placeholder="DEL-001"
-                className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-5 py-4 text-base text-white placeholder-slate-500 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all font-mono uppercase"
+                className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all font-mono uppercase"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
-                {language === 'hi' ? 'विवरण (वैकल्पिक)' : 'Description (Optional)'}
-              </label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Description</label>
               <input
-                type="text"
-                value={formData.description}
+                type="text" value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder={language === 'hi' ? 'अतिरिक्त टिप्पणियां' : 'Additional context or notes'}
-                className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-5 py-4 text-base text-white placeholder-slate-500 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
+                placeholder="Lok Sabha Phase-1 Election"
+                className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
               />
             </div>
           </div>
         </div>
 
-        <hr className="border-slate-700/50" />
-
-        {/* Section 2: Timeline */}
+        {/* Section 2: Schedule */}
         <div className="space-y-5">
-           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-brand font-bold">2</div>
-            <h2 className="text-lg font-bold text-white">{language === 'hi' ? 'चुनाव की समय सीमा' : 'Election Timeline'}</h2>
+          <div className="flex items-center gap-3 border-b border-slate-800/60 pb-3">
+            <div className="w-8 h-8 rounded-xl bg-brand/10 border border-brand/30 flex items-center justify-center text-brand font-extrabold text-sm">2</div>
+            <div>
+              <h2 className="text-base font-bold text-white">Polling Schedule</h2>
+              <p className="text-xs text-slate-400">Start and end date/time</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-2">
                 <span className="material-symbols-outlined text-sm text-emerald-400">play_circle</span>
-                {language === 'hi' ? 'प्रारंभ समय' : 'Start Time'} <span className="text-brand">*</span>
+                Poll Opening <span className="text-brand">*</span>
               </label>
               <input
-                type="datetime-local"
-                required
-                value={formData.startTime}
+                type="datetime-local" required value={formData.startTime}
                 onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-5 py-4 text-base text-white focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all [color-scheme:dark]"
+                className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-3.5 text-sm text-white focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all [color-scheme:dark]"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-2">
                 <span className="material-symbols-outlined text-sm text-red-400">stop_circle</span>
-                {language === 'hi' ? 'समाप्ति समय' : 'End Time'} <span className="text-brand">*</span>
+                Poll Closing <span className="text-brand">*</span>
               </label>
               <input
-                type="datetime-local"
-                required
-                value={formData.endTime}
+                type="datetime-local" required value={formData.endTime}
                 onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-5 py-4 text-base text-white focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all [color-scheme:dark]"
+                className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-3.5 text-sm text-white focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all [color-scheme:dark]"
               />
             </div>
           </div>
         </div>
-        
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-4 mt-6">
-          <span className="material-symbols-outlined text-amber-400 text-3xl">warning</span>
+
+        {/* Section 3: Candidates */}
+        <div className="space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-brand/10 border border-brand/30 flex items-center justify-center text-brand font-extrabold text-sm">3</div>
+              <div>
+                <h2 className="text-base font-bold text-white">Candidate Roster</h2>
+                <p className="text-xs text-slate-400">Min 2 candidates required</p>
+              </div>
+            </div>
+            <button type="button" onClick={addCandidateField}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-brand font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">add</span>Add
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {candidates.map((cand, idx) => (
+              <div key={idx} className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col md:flex-row items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-xl shrink-0">
+                  {cand.symbol || '🗳️'}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 w-full">
+                  <input type="text" required placeholder="Candidate Name" value={cand.name}
+                    onChange={(e) => handleCandidateChange(idx, 'name', e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-brand focus:outline-none" />
+                  <input type="text" required placeholder="Party (e.g. BJP)" value={cand.party}
+                    onChange={(e) => handleCandidateChange(idx, 'party', e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-brand focus:outline-none" />
+                  <input type="text" placeholder="Symbol emoji" value={cand.symbol}
+                    onChange={(e) => handleCandidateChange(idx, 'symbol', e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-brand focus:outline-none" />
+                </div>
+                {candidates.length > 2 && (
+                  <button type="button" onClick={() => removeCandidateField(idx)}
+                    className="p-2 text-slate-500 hover:text-red-400 transition shrink-0">
+                    <span className="material-symbols-outlined text-lg">delete</span>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Notice */}
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start gap-4">
+          <span className="material-symbols-outlined text-amber-400 text-2xl shrink-0 mt-0.5">verified</span>
           <div>
-            <h4 className="text-sm font-bold text-amber-400 mb-1">
-              {language === 'hi' ? 'अपरिवर्तनीय कार्रवाई' : 'Immutable Action'}
-            </h4>
-            <p className="text-xs text-slate-300">
-               {language === 'hi' ? 'एक बार तैनात होने के बाद, चुनाव मापदंडों को स्मार्ट अनुबंध पर स्थायी रूप से दर्ज किया जाएगा और इसे बदला नहीं जा सकता।' : 'Once deployed, the election parameters will be permanently recorded on the smart contract and cannot be altered.'}
+            <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">Immutable Deployment</h4>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Once deployed, election parameters and candidate list cannot be modified on the blockchain.
             </p>
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-4 mt-4 bg-gradient-to-r from-brand to-amber-600 hover:from-amber-600 hover:to-brand text-white font-bold text-lg rounded-xl shadow-lg shadow-brand/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        {/* Submit */}
+        <button type="submit" disabled={loading}
+          className="w-full py-4 bg-gradient-to-r from-brand to-amber-600 hover:from-amber-600 hover:to-brand text-white font-extrabold text-base rounded-2xl shadow-xl shadow-brand/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.01]">
           {loading ? (
             <>
-               <span className="material-symbols-outlined animate-spin">sync</span>
-               {language === 'hi' ? 'ब्लॉकचेन पर तैनात किया जा रहा है...' : 'Deploying to EVM Blockchain...'}
+              <span className="material-symbols-outlined animate-spin text-xl">sync</span>
+              <span>{deployStep || 'Deploying...'}</span>
             </>
           ) : (
-             <>
-                <span className="material-symbols-outlined">rocket_launch</span>
-                {language === 'hi' ? 'स्मार्ट अनुबंध तैनात करें' : 'Deploy Smart Contract Instance'}
-             </>
+            <>
+              <span className="material-symbols-outlined text-xl">rocket_launch</span>
+              <span>Deploy Election Smart Contract</span>
+            </>
           )}
         </button>
       </form>

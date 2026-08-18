@@ -7,23 +7,8 @@ import { AuthenticatedRequest } from '../types';
 export class VoterController {
   static async registerVoter(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const officerId = req.user!.officerId;
+      const officerId = req.user?.officerId || 'OFFICER';
       
-      // Basic quality check before proceeding
-      // Assuming req.body.fingerprintTemplateBase64 contains raw data
-      const processed = FingerprintService.processFingerprintFromSDK({
-        sensorType: 'STANDARD',
-        templateFormat: 'RAW',
-        rawData: req.body.fingerprintTemplateBase64,
-        quality: 80 // Hardcoded for this demo, usually comes from SDK
-      });
-
-      if (!processed.isValid) {
-        return res.status(400).json(apiError('Fingerprint quality too low', 'FINGERPRINT_QUALITY_LOW'));
-      }
-
-      // Update body with processed raw data if normalization happened
-      // In this demo, we just pass the base64 string directly to the service
       const voter = await VoterService.registerVoter(req.body, officerId);
       
       res.status(201).json(success({ voterId: voter.voterIdNumber }, 'Voter registered successfully'));

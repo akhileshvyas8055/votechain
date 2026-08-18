@@ -6,7 +6,7 @@ import { AuthenticatedRequest } from '../types';
 export class ElectionController {
   static async createElection(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      const officerId = req.user!.officerId;
+      const officerId = req.user?.officerId || 'ADMIN';
       const election = await ElectionService.createElection(req.body, officerId);
       res.status(201).json(success(election, 'Election created successfully'));
     } catch (err) {
@@ -49,6 +49,15 @@ export class ElectionController {
     try {
       const elections = await ElectionService.getActiveElections();
       res.json(success(elections, 'Active elections retrieved'));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getAllElections(req: Request, res: Response, next: NextFunction) {
+    try {
+      const elections = await ElectionService.getAllElections();
+      res.json(success(elections, 'All elections retrieved'));
     } catch (err) {
       next(err);
     }
