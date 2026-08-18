@@ -77,7 +77,8 @@ function write<T>(key: string, data: T[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(key, JSON.stringify(data));
   // Sync to backend for EVM machine
-  fetch('http://localhost:4000/api/mock/sync', {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  fetch(`${apiUrl}/api/mock/sync`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ key, data })
@@ -90,7 +91,8 @@ if (typeof window !== 'undefined') {
     ['votechain_elections', 'votechain_voters'].forEach(key => {
       const data = localStorage.getItem(key);
       if (data) {
-        fetch('http://localhost:4000/api/mock/sync', {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        fetch(`${apiUrl}/api/mock/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key, data: JSON.parse(data) })
@@ -101,7 +103,8 @@ if (typeof window !== 'undefined') {
 
   // Poll backend for new votes
   setInterval(() => {
-    fetch('http://localhost:4000/api/mock/data')
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    fetch(`${apiUrl}/api/mock/data`)
       .then(res => res.json())
       .then(data => {
         if (data.elections) localStorage.setItem('votechain_elections', JSON.stringify(data.elections));

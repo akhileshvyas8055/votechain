@@ -21,7 +21,8 @@ export function App() {
   }, []);
 
   const fetchActiveElection = () => {
-    fetch('http://localhost:4000/api/mock/elections/active')
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    fetch(`${apiUrl}/api/mock/elections/active`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data) {
@@ -47,7 +48,8 @@ export function App() {
   const handleVerifyFingerprint = () => {
     if (!voterIdSimulated) return;
     setIsVerifying(true);
-    fetch('http://localhost:4000/api/mock/voter/verify-fingerprint', {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    fetch(`${apiUrl}/api/mock/voter/verify-fingerprint`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ voterId: voterIdSimulated })
@@ -71,7 +73,8 @@ export function App() {
 
   const handleCastVote = () => {
     setIsCasting(true);
-    fetch('http://localhost:4000/api/mock/vote/cast', {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    fetch(`${apiUrl}/api/mock/vote/cast`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

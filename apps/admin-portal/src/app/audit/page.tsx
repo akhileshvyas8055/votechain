@@ -9,7 +9,8 @@ export default function AuditPage() {
 
   const fetchAudit = async () => {
     try {
-      const res = await fetch('http://localhost:4000/api/mock/data');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/api/mock/data`);
       const data = await res.json();
       if (data.success !== false && data.audit) {
         setEntries(data.audit);
