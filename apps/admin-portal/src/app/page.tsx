@@ -3,19 +3,31 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { api } from '@/lib/api';
 
-/* ─── Sidebar Nav Items ─── */
-const navItems = [
-  { label: 'Dashboard', labelHi: 'डैशबोर्ड', href: '/', icon: 'dashboard' },
-  { label: 'Live Results', labelHi: 'लाइव परिणाम', href: '/results', icon: 'how_to_vote' },
-  { label: 'Voter Enrollment', labelHi: 'मतदाता पंजीकरण', href: '/voters/register', icon: 'fingerprint' },
-  { label: 'Elections', labelHi: 'चुनाव प्रबंधन', href: '/elections', icon: 'ballot' },
-  { label: 'Audit Trail', labelHi: 'ऑडिट लॉग', href: '/audit', icon: 'shield' },
-];
+interface Election {
+  id: string;
+  name: string;
+  constituency: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  totalVotes?: number;
+}
+
+interface AuditLog {
+  tx: string;
+  action: string;
+  wallet: string;
+  booth: string;
+  status: string;
+  statusColor: string;
+}
 
 /* ─── Metric Card ─── */
 function MetricCard({ title, value, icon, accent, badge }: {
-  title: string; value: string; icon: string; accent: string; badge?: string;
+  title: string; value: string | number; icon: string; accent: string; badge?: string;
 }) {
   return (
     <div className="glass-card p-6 relative overflow-hidden group">
@@ -38,9 +50,7 @@ function MetricCard({ title, value, icon, accent, badge }: {
 }
 
 /* ─── Election Card ─── */
-function ElectionCard({ title, desc, participation, timeLeft, status }: {
-  title: string; desc: string; participation: string; timeLeft: string; status: string;
-}) {
+function ElectionCard({ election }: { election: Election }) {
   return (
     <div className="glass-card p-6 relative overflow-hidden group">
       <div className="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -48,30 +58,30 @@ function ElectionCard({ title, desc, participation, timeLeft, status }: {
       {/* Status Badge */}
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1 pr-4">
-          <h3 className="text-lg font-semibold text-white mb-1">{title}</h3>
-          <p className="text-sm text-slate-400 line-clamp-2">{desc}</p>
+          <h3 className="text-lg font-semibold text-white mb-1">{election.name}</h3>
+          <p className="text-sm text-slate-400 line-clamp-2">{election.description || `Constituency: ${election.constituency}`}</p>
         </div>
-        <span className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-3 py-1.5 rounded-full border border-emerald-500/20 whitespace-nowrap">
+        <span className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-3 py-1.5 rounded-full border border-emerald-500/20 whitespace-nowrap uppercase">
           <span className="relative w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
-          {status}
+          {election.status}
         </span>
       </div>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/30">
-          <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Participation</p>
-          <p className="text-base font-bold text-white font-mono">{participation}</p>
+          <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Constituency</p>
+          <p className="text-sm font-bold text-white font-mono">{election.constituency}</p>
         </div>
         <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/30">
-          <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Time Left</p>
-          <p className="text-base font-bold text-amber-400 font-mono">{timeLeft}</p>
+          <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Votes Logged</p>
+          <p className="text-sm font-bold text-amber-400 font-mono">{(election.totalVotes || 0).toLocaleString()}</p>
         </div>
       </div>
 
       {/* Actions */}
       <div className="flex gap-3">
-        <Link href="/results" className="flex-1 text-center py-2.5 text-sm font-semibold bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20 rounded-xl transition-all">
+        <Link href={`/results?electionId=${election.id}`} className="flex-1 text-center py-2.5 text-sm font-semibold bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20 rounded-xl transition-all">
           Live Analytics
         </Link>
         <Link href="/elections" className="flex-1 text-center py-2.5 text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl transition-all">
@@ -82,10 +92,22 @@ function ElectionCard({ title, desc, participation, timeLeft, status }: {
   );
 }
 
+/* ─── Sidebar Nav Items ─── */
+const navItems = [
+  { label: 'Dashboard', labelHi: 'डैशबोर्ड', href: '/', icon: 'dashboard' },
+  { label: 'Live Results', labelHi: 'लाइव परिणाम', href: '/results', icon: 'how_to_vote' },
+  { label: 'Voter Enrollment', labelHi: 'मतदाता पंजीकरण', href: '/voters/register', icon: 'fingerprint' },
+  { label: 'Elections', labelHi: 'चुनाव प्रबंधन', href: '/elections', icon: 'ballot' },
+  { label: 'Audit Trail', labelHi: 'ऑडिट लॉग', href: '/audit', icon: 'shield' },
+];
+
 /* ─── Main Dashboard Page ─── */
 export default function DashboardPage() {
   const pathname = usePathname();
   const [time, setTime] = useState('');
+  const [elections, setElections] = useState<Election[]>([]);
+  const [auditLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const tick = () => setTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -93,6 +115,26 @@ export default function DashboardPage() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const res = await api.get('/elections/active');
+        setElections(res.data.data || []);
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        setElections([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  const totalElections = elections.length;
+  const activePolls = elections.filter(e => e.status === 'ACTIVE').length;
+  const totalVotes = elections.reduce((acc, e) => acc + (e.totalVotes || 0), 0);
 
   return (
     <div className="flex min-h-screen">
@@ -115,8 +157,8 @@ export default function DashboardPage() {
           <div className="mt-4 flex items-center gap-2.5 bg-emerald-500/5 px-3 py-2 rounded-lg border border-emerald-500/10">
             <span className="relative w-2 h-2 rounded-full bg-emerald-400 pulse-dot" />
             <div>
-              <p className="text-xs font-semibold text-slate-200">Polygon Mainnet</p>
-              <p className="text-[10px] text-emerald-400 font-mono">Block #14,892,044</p>
+              <p className="text-xs font-semibold text-slate-200">Polygon Network</p>
+              <p className="text-[10px] text-emerald-400 font-mono">Node Active</p>
             </div>
           </div>
         </div>
@@ -162,7 +204,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between px-8 h-16">
             <div>
               <h2 className="text-lg font-bold text-white">Commission Dashboard</h2>
-              <p className="text-xs text-slate-500 font-mono">System Optimal • {time}</p>
+              <p className="text-xs text-slate-500 font-mono">System Active • {time}</p>
             </div>
             <div className="flex items-center gap-3">
               <button className="p-2.5 rounded-xl bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800 transition border border-slate-700/30">
@@ -189,9 +231,9 @@ export default function DashboardPage() {
           
           {/* Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-            <MetricCard title="Total Elections" value="12" icon="ballot" accent="bg-brand" />
-            <MetricCard title="Active Polls" value="4" icon="how_to_vote" accent="bg-emerald-500" badge="LIVE" />
-            <MetricCard title="Votes Logged" value="14,82,900" icon="receipt_long" accent="bg-violet-500" />
+            <MetricCard title="Total Elections" value={totalElections} icon="ballot" accent="bg-brand" />
+            <MetricCard title="Active Polls" value={activePolls} icon="how_to_vote" accent="bg-emerald-500" badge={activePolls > 0 ? "LIVE" : undefined} />
+            <MetricCard title="Votes Logged" value={totalVotes.toLocaleString()} icon="receipt_long" accent="bg-violet-500" />
             <MetricCard title="Chain Security" value="100%" icon="verified_user" accent="bg-blue-500" badge="VERIFIED" />
           </div>
 
@@ -204,22 +246,28 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <ElectionCard
-                title="General Parliamentary Election 2026"
-                desc="National constituency representation election for central parliament."
-                participation="64.2%"
-                timeLeft="04h 12m"
-                status="LIVE"
-              />
-              <ElectionCard
-                title="Municipal Infrastructure Bond"
-                desc="50M USDC allocation for metropolitan transit grid restructuring."
-                participation="82.1%"
-                timeLeft="2d 04h"
-                status="LIVE"
-              />
-            </div>
+            {loading ? (
+              <div className="glass-card p-8 text-center text-slate-400">Loading elections...</div>
+            ) : elections.length === 0 ? (
+              <div className="glass-card p-8 text-center text-slate-400 space-y-3">
+                <span className="material-symbols-outlined text-4xl text-slate-600">ballot</span>
+                <p className="text-base font-semibold text-slate-300">No Active Elections Deployed</p>
+                <p className="text-xs text-slate-500">Create a new election using the 'Deploy Election' button to start polling.</p>
+                <Link
+                  href="/elections/create"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-xs font-bold rounded-xl hover:bg-amber-600 transition"
+                >
+                  <span className="material-symbols-outlined text-sm">add_circle</span>
+                  Create First Election
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {elections.map((election) => (
+                  <ElectionCard key={election.id} election={election} />
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Quick Audit Log */}
@@ -232,49 +280,43 @@ export default function DashboardPage() {
             </div>
 
             <div className="glass-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-800/50">
-                      <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Tx Index</th>
-                      <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Action</th>
-                      <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Wallet</th>
-                      <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Booth</th>
-                      <th className="text-right text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    {[
-                      { tx: '892044-12', action: 'VOTE_CAST', wallet: '0x8626...0A59', booth: 'B-Del-04', status: 'Verified', statusColor: 'text-emerald-400' },
-                      { tx: '892044-11', action: 'VOTE_CAST', wallet: '0x44ab...992c', booth: 'B-Mum-12', status: 'Verified', statusColor: 'text-emerald-400' },
-                      { tx: '892044-10', action: 'ID_VERIFY', wallet: '0x9f1e...bc44', booth: 'Online', status: 'Verified', statusColor: 'text-emerald-400' },
-                      { tx: '892044-09', action: 'VOTE_CAST', wallet: '0x22ca...110a', booth: 'B-Kol-01', status: 'Pending', statusColor: 'text-amber-400' },
-                      { tx: '892044-08', action: 'REJECTED', wallet: '0x1a2b...3c4d', booth: 'B-Blr-09', status: 'Failed', statusColor: 'text-red-400' },
-                    ].map((row, i) => (
-                      <tr key={i} className="border-b border-slate-800/30 hover:bg-slate-800/20 transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-brand text-xs">{row.tx}</td>
-                        <td className="px-5 py-3.5">
-                          <span className={`inline-flex px-2.5 py-1 rounded-md text-[10px] font-bold border ${
-                            row.action === 'VOTE_CAST' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                            row.action === 'ID_VERIFY' ? 'bg-violet-500/10 text-violet-400 border-violet-500/20' :
-                            'bg-red-500/10 text-red-400 border-red-500/20'
-                          }`}>
-                            {row.action}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 font-mono text-xs text-slate-400">{row.wallet}</td>
-                        <td className="px-5 py-3.5 text-xs text-slate-500">{row.booth}</td>
-                        <td className={`px-5 py-3.5 text-right text-xs font-semibold ${row.statusColor}`}>
-                          {row.status === 'Verified' && <span className="material-symbols-outlined text-sm align-middle mr-1">check_circle</span>}
-                          {row.status === 'Pending' && <span className="material-symbols-outlined text-sm align-middle mr-1 animate-spin">hourglass_empty</span>}
-                          {row.status === 'Failed' && <span className="material-symbols-outlined text-sm align-middle mr-1">cancel</span>}
-                          {row.status}
-                        </td>
+              {auditLogs.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 space-y-2">
+                  <span className="material-symbols-outlined text-3xl text-slate-600">security</span>
+                  <p className="text-sm">No transaction audit logs recorded yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-800/50">
+                        <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Tx Index</th>
+                        <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Action</th>
+                        <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Wallet</th>
+                        <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Booth</th>
+                        <th className="text-right text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="text-sm">
+                      {auditLogs.map((row, i) => (
+                        <tr key={i} className="border-b border-slate-800/30 hover:bg-slate-800/20 transition-colors">
+                          <td className="px-5 py-3.5 font-mono text-brand text-xs">{row.tx}</td>
+                          <td className="px-5 py-3.5">
+                            <span className="inline-flex px-2.5 py-1 rounded-md text-[10px] font-bold border bg-blue-500/10 text-blue-400 border-blue-500/20">
+                              {row.action}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3.5 font-mono text-xs text-slate-400">{row.wallet}</td>
+                          <td className="px-5 py-3.5 text-xs text-slate-500">{row.booth}</td>
+                          <td className={`px-5 py-3.5 text-right text-xs font-semibold ${row.statusColor}`}>
+                            {row.status}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </section>
 
@@ -283,3 +325,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

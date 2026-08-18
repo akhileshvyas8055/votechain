@@ -8,38 +8,7 @@ export function App() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
-  const candidates = [
-    {
-      id: 1,
-      name: 'Dr. Elena Rostova',
-      nameHindi: 'डॉ. एलेना रोस्तोवा',
-      party: 'Progressive Alliance',
-      partyHindi: 'प्रोग्रेसिव अलायंस',
-      symbol: '☀️',
-      symbolName: 'Sun / सूरज',
-      photo: '/images/candidate1.png',
-    },
-    {
-      id: 2,
-      name: 'Marcus Chen',
-      nameHindi: 'मार्कस चेन',
-      party: 'Decentralization Coalition',
-      partyHindi: 'डिसेंट्रलाइजेशन गठबंधन',
-      symbol: '🌳',
-      symbolName: 'Tree / पेड़',
-      photo: '/images/candidate2.png',
-    },
-    {
-      id: 3,
-      name: 'Sarah Jenkins',
-      nameHindi: 'सारा जेनकिंस',
-      party: 'Independent Alliance',
-      partyHindi: 'निर्दलीय गठबंधन',
-      symbol: '🚩',
-      symbolName: 'Flag / झंडा',
-      photo: '/images/elena_rostova.png',
-    },
-  ];
+  const [candidates, setCandidates] = useState<any[]>([]);
 
   const handleKeypad = (key: string) => {
     if (key === 'back') {
@@ -196,39 +165,50 @@ export function App() {
               </p>
             </div>
 
-            <div className="space-y-3">
-              {candidates.map((c, i) => (
-                <div
-                  key={c.id}
-                  className="bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 flex items-center justify-between hover:border-amber-500/50 transition"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-slate-800 rounded-xl flex items-center justify-center font-bold text-2xl text-amber-400">
-                      {i + 1}
+            {candidates.length === 0 ? (
+              <div className="bg-slate-950 border-2 border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-2">
+                <p className="text-lg font-bold text-slate-200">
+                  {language === 'hi' ? 'कोई उम्मीदवार पंजीकृत नहीं है' : 'No Candidates Registered'}
+                </p>
+                <p className="text-xs">
+                  {language === 'hi' ? 'कृपया पीठासीन अधिकारी से संपर्क करें' : 'Please contact the Booth Election Officer'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {candidates.map((c, i) => (
+                  <div
+                    key={c.id}
+                    className="bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 flex items-center justify-between hover:border-amber-500/50 transition"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-slate-800 rounded-xl flex items-center justify-center font-bold text-2xl text-amber-400">
+                        {i + 1}
+                      </div>
+                      <div>
+                        <h3 className={`text-xl font-bold text-slate-100 ${language === 'hi' ? 'font-hindi' : ''}`}>
+                          {language === 'hi' ? (c.nameHindi || c.name) : c.name}
+                        </h3>
+                        <p className={`text-xs text-amber-400 ${language === 'hi' ? 'font-hindi' : ''}`}>
+                          {language === 'hi' ? (c.partyHindi || c.party) : c.party}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className={`text-xl font-bold text-slate-100 ${language === 'hi' ? 'font-hindi' : ''}`}>
-                        {language === 'hi' ? c.nameHindi : c.name}
-                      </h3>
-                      <p className={`text-xs text-amber-400 ${language === 'hi' ? 'font-hindi' : ''}`}>
-                        {language === 'hi' ? c.partyHindi : c.party}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-6">
-                    <div className="text-4xl">{c.symbol}</div>
-                    <button
-                      onClick={() => handleVoteSelect(c)}
-                      className="h-16 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xl rounded-xl shadow-lg border-b-4 border-emerald-800 active:border-b-0 transition flex items-center gap-2"
-                    >
-                      <span>{language === 'hi' ? 'वोट दें' : 'VOTE'}</span>
-                      <span className="text-2xl">👆</span>
-                    </button>
+                    <div className="flex items-center gap-6">
+                      <div className="text-4xl">{c.symbol || '🗳️'}</div>
+                      <button
+                        onClick={() => handleVoteSelect(c)}
+                        className="h-16 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xl rounded-xl shadow-lg border-b-4 border-emerald-800 active:border-b-0 transition flex items-center gap-2"
+                      >
+                        <span>{language === 'hi' ? 'वोट दें' : 'VOTE'}</span>
+                        <span className="text-2xl">👆</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
